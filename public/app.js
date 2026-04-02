@@ -214,7 +214,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.location.protocol === 'file:') {
             throw new Error('Por favor, abre la aplicacion desde http://localhost:3000 para que funcione correctamente, no desde el archivo local.');
         }
-        const response = await fetch(url, options);
+        const requestOptions = { ...(options || {}) };
+        const method = String(requestOptions.method || 'GET').toUpperCase();
+        if (method === 'GET' && !Object.prototype.hasOwnProperty.call(requestOptions, 'cache')) {
+            requestOptions.cache = 'no-store';
+        }
+
+        const response = await fetch(url, requestOptions);
         let payload = null;
         try {
             payload = await response.json();
@@ -1374,6 +1380,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             await fetchTemplates();
+            await fetchDetailedEvents();
+            if (selectedDate) {
+                await fetchDayEvents(selectedDate);
+                renderDayPanelView();
+            }
+            if (calendar) {
+                calendar.refetchEvents();
+            }
             renderManageTemplateList();
             hydrateManageForm();
             closeModal(manageModal);

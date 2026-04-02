@@ -663,6 +663,12 @@ fastify.put('/api/plantillas/:id', async (request, reply) => {
             templateId,
             user.id
         ]);
+        await db.run('UPDATE calendar_events SET title = ?, color = ? WHERE template_id = ? AND user_id = ?', [
+            title,
+            color,
+            templateId,
+            user.id
+        ]);
         await db.run('DELETE FROM template_tags WHERE template_id = ?', [templateId]);
 
         for (const tag of tags) {
