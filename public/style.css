@@ -737,6 +737,16 @@ body {
         border-radius: 12px 12px 0 0;
     }
 
+    #dayEventModal {
+        align-items: flex-start;
+        padding-top: 8px;
+    }
+
+    #dayEventModal .modal-card {
+        max-height: 92vh;
+        border-radius: 12px;
+    }
+
     .admin-user-item {
         flex-direction: column;
         align-items: flex-start;
