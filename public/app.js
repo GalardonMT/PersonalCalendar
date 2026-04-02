@@ -38,6 +38,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const templateModal = document.getElementById('templateModal');
     const dayEventModal = document.getElementById('dayEventModal');
     const manageModal = document.getElementById('manageModal');
+    const dialogModal = document.getElementById('dialogModal');
+    const dialogCard = dialogModal ? dialogModal.querySelector('.dialog-card') : null;
+    const dialogTitleEl = document.getElementById('dialogTitle');
+    const dialogMessageEl = document.getElementById('dialogMessage');
+    const dialogCloseBtn = document.getElementById('dialogCloseBtn');
+    const dialogCancelBtn = document.getElementById('dialogCancelBtn');
+    const dialogConfirmBtn = document.getElementById('dialogConfirmBtn');
     const toast = document.getElementById('toast');
 
     const openTemplateModalBtn = document.getElementById('openTemplateModal');
@@ -86,6 +93,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const dayPanelEdit = document.getElementById('dayPanelEdit');
 
     let templates = [];
+    let manageDraftTemplates = [];
+    let deletedManageTemplateIds = new Set();
+    let manageTempTemplateId = -1;
     let workingTags = [];
     let selectedManageTemplateId = null;
     let manageWorkingTags = [];
@@ -99,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentUser = null;
     let calendar = null;
     let detailedEvents = [];
+    let dialogResolver = null;
     const DOUBLE_TAP_DELAY_MS = 350;
     let lastTapDateStr = '';
     let lastTapTimestamp = 0;
@@ -173,7 +184,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function onManageColorSelect(color) {
         selectedManageColor = normalizeHexColor(color);
+        persistCurrentManageDraft();
         renderColorOptions(manageColorOptions, selectedManageColor, onManageColorSelect);
+        renderManageTemplateList();
     }
 
     function showToast(message, isError) {
@@ -247,6 +260,72 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function closeModal(modal) {
         modal.classList.add('hidden');
+    }
+
+    function resolveDialog(result) {
+        if (!dialogResolver) {
+            return;
+        }
+        const currentResolver = dialogResolver;
+        dialogResolver = null;
+        closeModal(dialogModal);
+        currentResolver(result);
+    }
+
+    function openDialog(config) {
+        if (!dialogModal || !dialogTitleEl || !dialogMessageEl || !dialogConfirmBtn || !dialogCard) {
+            return Promise.resolve(false);
+        }
+
+        if (dialogResolver) {
+            resolveDialog(false);
+        }
+
+        const title = String(config?.title || 'Confirmacion');
+        const message = String(config?.message || '');
+        const confirmText = String(config?.confirmText || 'Aceptar');
+        const cancelText = String(config?.cancelText || 'Cancelar');
+        const isAlert = Boolean(config?.isAlert);
+        const isDanger = Boolean(config?.isDanger);
+
+        dialogTitleEl.textContent = title;
+        dialogMessageEl.textContent = message;
+        dialogConfirmBtn.textContent = confirmText;
+        if (dialogCancelBtn) {
+            dialogCancelBtn.textContent = cancelText;
+        }
+
+        dialogCard.classList.toggle('is-alert', isAlert);
+        dialogCard.classList.toggle('is-danger', isDanger);
+
+        openModal(dialogModal);
+        window.setTimeout(() => dialogConfirmBtn.focus(), 0);
+
+        return new Promise((resolve) => {
+            dialogResolver = resolve;
+        });
+    }
+
+    function customConfirm(message, options) {
+        return openDialog({
+            title: options?.title || 'Confirmar accion',
+            message,
+            confirmText: options?.confirmText || 'Confirmar',
+            cancelText: options?.cancelText || 'Cancelar',
+            isDanger: Boolean(options?.isDanger),
+            isAlert: false
+        });
+    }
+
+    function customAlert(message, options) {
+        return openDialog({
+            title: options?.title || 'Aviso',
+            message,
+            confirmText: options?.confirmText || 'Entendido',
+            cancelText: '',
+            isDanger: false,
+            isAlert: true
+        });
     }
 
     function renderWorkingTags() {
@@ -339,13 +418,46 @@ document.addEventListener('DOMContentLoaded', function() {
         tagSelect.innerHTML = '';
     }
 
+    function getVisibleManageDrafts() {
+        return manageDraftTemplates.filter((template) => !deletedManageTemplateIds.has(template.id));
+    }
+
+    function getManageDraftById(templateId) {
+        return manageDraftTemplates.find((template) => template.id === Number(templateId));
+    }
+
+    function initializeManageDrafts() {
+        manageDraftTemplates = templates.map((template) => ({
+            id: template.id,
+            title: template.title,
+            color: normalizeHexColor(template.color),
+            tags: [...template.tags],
+            isNew: false
+        }));
+        deletedManageTemplateIds = new Set();
+        manageTempTemplateId = -1;
+        selectedManageTemplateId = manageDraftTemplates.length ? manageDraftTemplates[0].id : null;
+    }
+
+    function persistCurrentManageDraft() {
+        const current = getManageDraftById(selectedManageTemplateId);
+        if (!current) {
+            return;
+        }
+
+        current.title = manageTemplateTitleInput.value.trim();
+        current.tags = [...manageWorkingTags];
+        current.color = normalizeHexColor(selectedManageColor);
+    }
+
     function renderManageTemplateList() {
         manageTemplateList.innerHTML = '';
+        const visibleTemplates = getVisibleManageDrafts();
 
-        if (!templates.length) {
+        if (!visibleTemplates.length) {
             const empty = document.createElement('p');
             empty.className = 'empty-message';
-            empty.textContent = 'No hay eventos base todavía.';
+            empty.textContent = 'No hay eventos base para gestionar.';
             manageTemplateList.appendChild(empty);
             selectedManageTemplateId = null;
             manageTemplateForm.reset();
@@ -356,7 +468,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        for (const template of templates) {
+        for (const template of visibleTemplates) {
             const item = document.createElement('button');
             item.type = 'button';
             item.className = 'manage-item';
@@ -380,6 +492,7 @@ document.addEventListener('DOMContentLoaded', function() {
             item.appendChild(itemContent);
 
             item.addEventListener('click', function() {
+                persistCurrentManageDraft();
                 selectedManageTemplateId = template.id;
                 hydrateManageForm();
                 renderManageTemplateList();
@@ -389,11 +502,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function hydrateManageForm() {
-        const current = templates.find((t) => t.id === selectedManageTemplateId);
+        const current = getManageDraftById(selectedManageTemplateId);
         if (!current) {
             manageTemplateForm.reset();
             manageWorkingTags = [];
+            selectedManageColor = DEFAULT_COLOR;
             renderManageTags();
+            renderColorOptions(manageColorOptions, selectedManageColor, onManageColorSelect);
             return;
         }
 
@@ -484,6 +599,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="event-preview-info">
                     <p class="event-preview-title">${eventItem.title}</p>
                     <p class="event-preview-tag">Etiqueta: ${eventItem.selectedTag || 'Sin etiqueta'}</p>
+                    <div class="event-preview-actions">
+                        <button type="button" class="btn btn-primary js-go-to-event-day" data-date="${eventItem.start}">Ir</button>
+                    </div>
                 </div>
             `;
 
@@ -1060,7 +1178,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (event.target.classList.contains('js-day-delete')) {
-            const ok = window.confirm('¿Seguro que quieres eliminar este evento del dia?');
+            const ok = await customConfirm('¿Seguro que quieres eliminar este evento del dia?', {
+                title: 'Eliminar evento',
+                confirmText: 'Eliminar',
+                isDanger: true
+            });
             if (!ok) {
                 return;
             }
@@ -1099,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', function() {
     openManageModalBtn.addEventListener('click', async function() {
         try {
             await fetchTemplates();
-            selectedManageTemplateId = templates.length ? templates[0].id : null;
+            initializeManageDrafts();
             renderManageTemplateList();
             hydrateManageForm();
             openModal(manageModal);
@@ -1129,6 +1251,29 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     eventsFilterSelect?.addEventListener('change', renderEventsPreview);
+
+    eventsPreviewList?.addEventListener('click', async function(event) {
+        const goBtn = event.target.closest('.js-go-to-event-day');
+        if (!goBtn) {
+            return;
+        }
+
+        const targetDate = String(goBtn.dataset.date || '').trim();
+        if (!targetDate) {
+            return;
+        }
+
+        try {
+            closeModal(viewEventsModal);
+            if (calendar) {
+                calendar.gotoDate(targetDate);
+            }
+            await selectDateAndRender(targetDate, null, false);
+            showToast('Dia seleccionado. Ya puedes editar o eliminar sus eventos.');
+        } catch (error) {
+            showToast(error.message, true);
+        }
+    });
 
     async function loadAdminUsers() {
         const users = await apiRequest('/api/admin/users');
@@ -1163,7 +1308,12 @@ document.addEventListener('DOMContentLoaded', function() {
             deleteBtn.className = 'btn btn-danger';
             deleteBtn.textContent = 'Eliminar';
             deleteBtn.onclick = async () => {
-                if (!confirm(`¿Eliminar al usuario ${u.username} y todos sus eventos?`)) return;
+                const ok = await customConfirm(`¿Eliminar al usuario ${u.username} y todos sus eventos?`, {
+                    title: 'Eliminar usuario',
+                    confirmText: 'Eliminar',
+                    isDanger: true
+                });
+                if (!ok) return;
                 try {
                     await apiRequest(`/api/admin/users/${u.id}`, { method: 'DELETE' });
                     showToast('Usuario eliminado.');
@@ -1256,6 +1406,30 @@ document.addEventListener('DOMContentLoaded', function() {
         saveDayEventBtn.textContent = 'Guardar en calendario';
     });
 
+    dialogConfirmBtn?.addEventListener('click', function() {
+        resolveDialog(true);
+    });
+
+    dialogCancelBtn?.addEventListener('click', function() {
+        resolveDialog(false);
+    });
+
+    dialogCloseBtn?.addEventListener('click', function() {
+        resolveDialog(false);
+    });
+
+    dialogModal?.addEventListener('click', function(event) {
+        if (event.target === dialogModal) {
+            resolveDialog(false);
+        }
+    });
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && dialogResolver && dialogModal && !dialogModal.classList.contains('hidden')) {
+            resolveDialog(false);
+        }
+    });
+
     addTagBtn.addEventListener('click', addTag);
     addManageTagBtn.addEventListener('click', addManageTag);
 
@@ -1271,6 +1445,11 @@ document.addEventListener('DOMContentLoaded', function() {
             event.preventDefault();
             addManageTag();
         }
+    });
+
+    manageTemplateTitleInput.addEventListener('input', function() {
+        persistCurrentManageDraft();
+        renderManageTemplateList();
     });
 
     templateSelect.addEventListener('change', () => {
@@ -1361,23 +1540,63 @@ document.addEventListener('DOMContentLoaded', function() {
     manageTemplateForm.addEventListener('submit', async function(event) {
         event.preventDefault();
 
-        if (!selectedManageTemplateId) {
-            showToast('Selecciona un evento base.', true);
-            return;
-        }
+        persistCurrentManageDraft();
 
-        const title = manageTemplateTitleInput.value.trim();
-        if (!title) {
-            showToast('El titulo es obligatorio.', true);
-            return;
+        const draftsToSave = getVisibleManageDrafts();
+        for (const draft of draftsToSave) {
+            if (!draft.title) {
+                showToast('Todos los eventos base deben tener titulo.', true);
+                selectedManageTemplateId = draft.id;
+                hydrateManageForm();
+                renderManageTemplateList();
+                return;
+            }
         }
 
         try {
-            await apiRequest(`/api/plantillas/${selectedManageTemplateId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, tags: manageWorkingTags, color: selectedManageColor })
-            });
+            for (const templateId of deletedManageTemplateIds) {
+                if (templateId > 0) {
+                    await apiRequest(`/api/plantillas/${templateId}`, { method: 'DELETE' });
+                }
+            }
+
+            for (const draft of draftsToSave) {
+                if (draft.isNew) {
+                    await apiRequest('/api/plantillas', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: draft.title,
+                            tags: draft.tags,
+                            color: draft.color
+                        })
+                    });
+                    continue;
+                }
+
+                const original = templates.find((template) => template.id === draft.id);
+                if (!original) {
+                    continue;
+                }
+
+                const tagsChanged = JSON.stringify(original.tags) !== JSON.stringify(draft.tags);
+                const titleChanged = original.title !== draft.title;
+                const colorChanged = normalizeHexColor(original.color) !== normalizeHexColor(draft.color);
+
+                if (!tagsChanged && !titleChanged && !colorChanged) {
+                    continue;
+                }
+
+                await apiRequest(`/api/plantillas/${draft.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: draft.title,
+                        tags: draft.tags,
+                        color: draft.color
+                    })
+                });
+            }
 
             await fetchTemplates();
             await fetchDetailedEvents();
@@ -1388,10 +1607,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (calendar) {
                 calendar.refetchEvents();
             }
+            initializeManageDrafts();
             renderManageTemplateList();
             hydrateManageForm();
             closeModal(manageModal);
-            showToast('Evento base actualizado.');
+            showToast('Cambios guardados correctamente.');
         } catch (error) {
             showToast(error.message, true);
         }
@@ -1403,24 +1623,31 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const ok = window.confirm('¿Seguro que quieres eliminar este evento base?');
+        const ok = await customConfirm('¿Seguro que quieres eliminar este evento base?', {
+            title: 'Eliminar evento base',
+            confirmText: 'Eliminar',
+            isDanger: true
+        });
         if (!ok) {
             return;
         }
 
-        try {
-            await apiRequest(`/api/plantillas/${selectedManageTemplateId}`, {
-                method: 'DELETE'
-            });
-
-            await fetchTemplates();
-            selectedManageTemplateId = templates.length ? templates[0].id : null;
-            renderManageTemplateList();
-            hydrateManageForm();
-            showToast('Evento base eliminado.');
-        } catch (error) {
-            showToast(error.message, true);
+        const current = getManageDraftById(selectedManageTemplateId);
+        if (!current) {
+            return;
         }
+
+        if (current.isNew) {
+            manageDraftTemplates = manageDraftTemplates.filter((template) => template.id !== current.id);
+        } else {
+            deletedManageTemplateIds.add(current.id);
+        }
+
+        const visibleTemplates = getVisibleManageDrafts();
+        selectedManageTemplateId = visibleTemplates.length ? visibleTemplates[0].id : null;
+        renderManageTemplateList();
+        hydrateManageForm();
+        showToast('Evento base marcado para eliminar. Guarda cambios para aplicar.');
     });
 
     duplicateTemplateBtn.addEventListener('click', async function() {
@@ -1429,34 +1656,25 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const currentTemplate = templates.find(t => t.id === selectedManageTemplateId);
+        persistCurrentManageDraft();
+
+        const currentTemplate = getManageDraftById(selectedManageTemplateId);
         if (!currentTemplate) return;
 
-        const titleInput = document.getElementById('manageTemplateTitle').value.trim();
+        const duplicatedTemplate = {
+            id: manageTempTemplateId,
+            title: `${currentTemplate.title || 'Evento'} (Copia)`,
+            color: normalizeHexColor(currentTemplate.color),
+            tags: [...currentTemplate.tags],
+            isNew: true
+        };
+        manageTempTemplateId -= 1;
 
-        try {
-            const body = {
-                title: (titleInput || currentTemplate.title) + ' (Copia)',
-                color: selectedManageColor || currentTemplate.color,
-                tags: [...manageWorkingTags]
-            };
-
-            await apiRequest('/api/plantillas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            await fetchTemplates();
-            if (templates.length > 0) {
-                selectedManageTemplateId = templates[0].id; // Es ordenado por ID descendente en el backend
-            }
-            renderManageTemplateList();
-            hydrateManageForm();
-            showToast('Evento base duplicado.');
-        } catch (error) {
-            showToast(error.message, true);
-        }
+        manageDraftTemplates.unshift(duplicatedTemplate);
+        selectedManageTemplateId = duplicatedTemplate.id;
+        renderManageTemplateList();
+        hydrateManageForm();
+        showToast('Evento base duplicado en borrador. Guarda cambios para aplicar.');
     });
 
     // Evita cierres accidentales al interactuar con el selector nativo de color.

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendario n8n</title>
+    <title>Calendario personal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,7 +23,7 @@
                 <label for="loginUsername">Usuario</label>
                 <input id="loginUsername" type="text" minlength="3" maxlength="30" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
 
-                <label for="loginPassword">Contrasena</label>
+                <label for="loginPassword">Contraseña</label>
                 <input id="loginPassword" type="password" minlength="4" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
 
                 <div class="auth-actions">
@@ -37,13 +37,13 @@
 
         <div id="registerView" class="auth-card hidden">
             <h1>Crear cuenta</h1>
-            <p>Elige un usuario y contrasena nuevos.</p>
+            <p>Elige un usuario y contraseña nuevos.</p>
 
             <form id="registerForm" class="auth-form" autocomplete="off">
                 <label for="registerUsername">Nuevo Usuario</label>
                 <input id="registerUsername" type="text" minlength="3" maxlength="30" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
 
-                <label for="registerPassword">Nueva Contrasena</label>
+                <label for="registerPassword">Nueva Contraseña</label>
                 <input id="registerPassword" type="password" minlength="4" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
 
                 <div class="auth-actions">
@@ -160,6 +160,22 @@
 
                 <div class="modal-footer">
                     <button id="closeViewEventsFooter" class="btn" type="button">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dialogModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+        <div class="modal-card dialog-card">
+            <div class="modal-header">
+                <h2 id="dialogTitle">Confirmacion</h2>
+                <button id="dialogCloseBtn" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+            </div>
+            <div class="modal-body">
+                <p id="dialogMessage" class="dialog-message"></p>
+                <div class="modal-footer">
+                    <button id="dialogCancelBtn" class="btn" type="button">Cancelar</button>
+                    <button id="dialogConfirmBtn" class="btn btn-primary" type="button">Aceptar</button>
                 </div>
             </div>
         </div>

@@ -259,6 +259,10 @@ body {
     padding: 16px;
 }
 
+#dialogModal {
+    z-index: 1200;
+}
+
 .hidden {
     display: none;
 }
@@ -338,6 +342,30 @@ body {
     gap: 8px;
 }
 
+.dialog-card {
+    width: min(460px, 100%);
+}
+
+.dialog-message {
+    margin: 0;
+    color: var(--text);
+    line-height: 1.45;
+    white-space: pre-line;
+}
+
+.dialog-card.is-alert #dialogCancelBtn {
+    display: none;
+}
+
+.dialog-card.is-danger #dialogConfirmBtn {
+    background: #b91c1c;
+    border-color: #b91c1c;
+}
+
+.dialog-card.is-danger #dialogConfirmBtn:hover {
+    background: #991b1b;
+}
+
 .modal-footer.between {
     justify-content: space-between;
     align-items: center;
@@ -360,17 +388,24 @@ body {
 
 .manage-card {
     width: min(900px, 100%);
+    max-height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
 }
 
 .manage-layout {
     display: grid;
     grid-template-columns: 260px 1fr;
-    min-height: 360px;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
 }
 
 .manage-layout aside {
     border-right: 1px solid #ebedf2;
     padding: 12px;
+    display: flex;
+    min-height: 0;
 }
 
 .manage-layout section {
@@ -381,6 +416,9 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%;
+    overflow-y: auto;
+    max-height: calc((46px * 7) + (8px * 6));
 }
 
 .manage-item {
@@ -442,6 +480,10 @@ body {
         border-right: 0;
         border-bottom: 1px solid #ebedf2;
     }
+
+    .manage-list {
+        max-height: calc((46px * 5) + (8px * 4));
+    }
 }
 
 .color-grid {
@@ -493,9 +535,11 @@ body {
 }
 
 .manage-item-content {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
+    min-width: 0;
 }
 
 .manage-item-color {
@@ -508,6 +552,11 @@ body {
 
 .manage-item-title {
     line-height: 1.2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    flex: 1;
+    min-width: 0;
 }
 
 .admin-modal-card {
@@ -699,6 +748,16 @@ body {
     margin: 6px 0 0;
     color: #475569;
     font-size: 13px;
+}
+
+.event-preview-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.event-preview-actions .btn {
+    padding: 6px 12px;
 }
 
 @media (max-width: 700px) {
