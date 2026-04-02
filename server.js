@@ -722,12 +722,22 @@ fastify.setErrorHandler((error, request, reply) => {
 const start = async () => {
     try {
         await iniciarDB();
-        // Escucha en 0.0.0.0 para funcionar en Docker
-        await fastify.listen({ port: 3000, host: '0.0.0.0' });
+        // Escucha dinamicamente en el puerto que asigne EasyPanel (o 3000 por defecto)
+        const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+        await fastify.listen({ port: port, host: '0.0.0.0' });
+        console.log(`Server is running on port ${port}`);
     } catch (err) {
         fastify.log.error(err);
         process.exit(1);
     }
 };
+
+// Manejar los apagados correctamente para evitar que el orquestador se queje
+['SIGINT', 'SIGTERM'].forEach(signal => {
+    process.on(signal, async () => {
+        await fastify.close();
+        process.exit(0);
+    });
+});
 
 start();
