@@ -15,7 +15,10 @@ COPY . .
 
 # Enforce environment configuration for production
 ENV NODE_ENV=production
-ENV DB_PATH=/app/data/database.sqlite
+ENV DB_PATH=/data/database.sqlite
+
+# Persistent volume mount point for SQLite data
+VOLUME ["/data"]
 
 # Expose the API port
 EXPOSE 3000
