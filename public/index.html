@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario n8n</title>
+    
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <section id="authSection" class="auth-shell">
+        <div id="loginView" class="auth-card">
+            <h1>Mi Calendario</h1>
+            <p>Inicia sesion para acceder a tu calendario personal.</p>
+
+            <form id="loginForm" class="auth-form" autocomplete="off">
+                <label for="loginUsername">Usuario</label>
+                <input id="loginUsername" type="text" minlength="3" maxlength="30" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+                <label for="loginPassword">Contrasena</label>
+                <input id="loginPassword" type="password" minlength="4" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+                <div class="auth-actions">
+                    <button class="btn btn-primary" type="submit" style="width: 100%;">Entrar</button>
+                </div>
+            </form>
+            <p class="auth-toggle-text">
+                ¿No tienes cuenta? <button id="showRegisterBtn" class="link-btn" type="button">Registrarse</button>
+            </p>
+        </div>
+
+        <div id="registerView" class="auth-card hidden">
+            <h1>Crear cuenta</h1>
+            <p>Elige un usuario y contrasena nuevos.</p>
+
+            <form id="registerForm" class="auth-form" autocomplete="off">
+                <label for="registerUsername">Nuevo Usuario</label>
+                <input id="registerUsername" type="text" minlength="3" maxlength="30" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+                <label for="registerPassword">Nueva Contrasena</label>
+                <input id="registerPassword" type="password" minlength="4" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+                <div class="auth-actions">
+                    <button class="btn btn-primary" type="submit" style="width: 100%;">Crear cuenta</button>
+                </div>
+            </form>
+            <p class="auth-toggle-text">
+                ¿Ya tienes cuenta? <button id="showLoginBtn" class="link-btn" type="button">Iniciar sesion</button>
+            </p>
+        </div>
+    </section>
+
+    <div id="appSection" class="page-shell hidden">
+        <header class="topbar">
+            <h1>Mi Calendario</h1>
+            <div class="topbar-actions">
+                <span id="currentUserLabel" class="current-user"></span>
+                <button id="openManageModal" class="btn" type="button">Gestionar eventos</button>
+                <button id="openTemplateModal" class="btn btn-primary" type="button">+ Nuevo evento</button>
+                <button id="logoutBtn" class="btn" type="button">Salir</button>
+            </div>
+        </header>
+
+        <div class="calendar-layout">
+            <aside class="day-panel">
+                <div class="day-panel-header">
+                    <h2 id="dayPanelTitle">Selecciona un dia</h2>
+                    <p id="dayPanelHint">1 clic: seleccionar y ver eventos. 2 clics: abrir modal para agregar.</p>
+                </div>
+
+                <div id="dayPanelView" class="day-panel-body">
+                    <p class="empty-message">Todavia no has seleccionado una fecha.</p>
+                </div>
+
+                <div id="dayPanelEdit" class="day-panel-body hidden"></div>
+            </aside>
+
+            <div id="calendar"></div>
+        </div>
+    </div>
+
+    <div id="templateModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="templateModalTitle">Crear evento base</h2>
+                <button id="closeTemplateModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+            </div>
+
+            <form id="templateForm" class="modal-body" autocomplete="off">
+                <label for="templateTitle">Titulo</label>
+                <input id="templateTitle" type="text" maxlength="120" required placeholder="Ej. Reunión semanal" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+                <label>Color del evento</label>
+                <div id="templateColorOptions" class="color-grid" aria-label="Seleccion de color"></div>
+
+                <label for="tagInput">Etiquetas opcionales (maximo 10)</label>
+                <div class="inline-field">
+                    <input id="tagInput" type="text" maxlength="40" placeholder="Ej. Trabajo" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                    <button id="addTagBtn" class="btn" type="button">Agregar</button>
+                </div>
+                <div id="tagList" class="tag-list"></div>
+
+                <div class="modal-footer">
+                    <button class="btn" type="button" id="cancelTemplate">Cancelar</button>
+                    <button class="btn btn-primary" type="submit">Guardar evento base</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="dayEventModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dayEventTitle">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="dayEventTitle">Agregar evento al dia</h2>
+                <button id="closeDayModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+            </div>
+
+            <form id="dayEventForm" class="modal-body" autocomplete="off">
+                <label for="eventDate">Fecha</label>
+                <input id="eventDate" type="date" required readonly autocomplete="off" />
+
+                <label for="templateSelect">Evento base</label>
+                <select id="templateSelect" required></select>
+
+                <label for="tagSelect">Etiqueta (opcional)</label>
+                <select id="tagSelect"></select>
+
+                <div class="modal-footer">
+                    <button class="btn" type="button" id="cancelDayEvent">Cancelar</button>
+                    <button class="btn btn-primary" type="submit" id="saveDayEventBtn">Guardar en calendario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden" aria-live="polite"></div>
+
+    <div id="manageModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="manageModalTitle">
+        <div class="modal-card manage-card">
+            <div class="modal-header">
+                <h2 id="manageModalTitle">Gestionar eventos base</h2>
+                <button id="closeManageModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+            </div>
+
+            <div class="manage-layout">
+                <aside>
+                    <div id="manageTemplateList" class="manage-list"></div>
+                </aside>
+
+                <section>
+                    <form id="manageTemplateForm" class="modal-body" autocomplete="off">
+                        <label for="manageTemplateTitle">Titulo</label>
+                        <input id="manageTemplateTitle" type="text" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+                        <label>Color del evento</label>
+                        <div id="manageColorOptions" class="color-grid" aria-label="Seleccion de color"></div>
+
+                        <label for="manageTagInput">Etiquetas opcionales (maximo 10)</label>
+                        <div class="inline-field">
+                            <input id="manageTagInput" type="text" maxlength="40" placeholder="Nueva etiqueta" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                            <button id="addManageTagBtn" class="btn" type="button">Agregar</button>
+                        </div>
+                        <div id="manageTagList" class="tag-list"></div>
+
+                        <div class="modal-footer between">
+                            <button id="deleteTemplateBtn" class="btn btn-danger" type="button">Eliminar</button>
+                            <div class="right-actions">
+                                <button class="btn" type="button" id="cancelManage">Cerrar</button>
+                                <button class="btn btn-primary" type="submit">Guardar cambios</button>
+                            </div>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
