@@ -16,6 +16,6 @@
     "@fastify/static": "^9.0.0",
     "fastify": "^5.8.4",
     "sqlite": "^5.1.1",
-    "sqlite3": "^6.0.1"
+    "sqlite3": "^5.1.7"
   }
 }
