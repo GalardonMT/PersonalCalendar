@@ -6,8 +6,9 @@ WORKDIR /app
 # Copy dependency definitions
 COPY package*.json ./
 
-# Install only production dependencies
+# Install only production dependencies and force sqlite3 to build from source
 RUN npm install --production
+RUN npm install sqlite3 --build-from-source
 
 # Bundle app source
 COPY . .
