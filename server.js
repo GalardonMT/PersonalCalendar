@@ -1,5 +1,6 @@
 const fastify = require('fastify')({ logger: true });
 const path = require('path');
+const fs = require('fs');
 const sqlite3 = require('sqlite3');
 const crypto = require('crypto');
 const { open } = require('sqlite');
@@ -10,8 +11,15 @@ const DEFAULT_COLOR = '#3b82f6';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 dias
 
 async function iniciarDB() {
+    const filename = process.env.DB_PATH || './database.sqlite';
+    const dbDir = path.dirname(filename);
+    
+    if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+    }
+
     db = await open({
-        filename: process.env.DB_PATH || './database.sqlite',
+        filename: filename,
         driver: sqlite3.Database
     });
 
