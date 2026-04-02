@@ -18,6 +18,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const adminModal = document.getElementById('adminModal');
     const closeAdminModal = document.getElementById('closeAdminModal');
     const adminUserList = document.getElementById('adminUserList');
+    const adminEditUserForm = document.getElementById('adminEditUserForm');
+    const adminEditUserId = document.getElementById('adminEditUserId');
+    const adminEditUsername = document.getElementById('adminEditUsername');
+    const adminEditPassword = document.getElementById('adminEditPassword');
+    const adminCancelEditBtn = document.getElementById('adminCancelEditBtn');
     const showLoginBtn = document.getElementById('showLoginBtn');
 
     const loginForm = document.getElementById('loginForm');
@@ -37,10 +42,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const openTemplateModalBtn = document.getElementById('openTemplateModal');
     const openManageModalBtn = document.getElementById('openManageModal');
+    const openViewEventsModalBtn = document.getElementById('openViewEventsModal');
     const closeTemplateModalBtn = document.getElementById('closeTemplateModal');
     const cancelTemplateBtn = document.getElementById('cancelTemplate');
     const closeManageModalBtn = document.getElementById('closeManageModal');
     const cancelManageBtn = document.getElementById('cancelManage');
+    const viewEventsModal = document.getElementById('viewEventsModal');
+    const closeViewEventsModalBtn = document.getElementById('closeViewEventsModal');
+    const closeViewEventsFooterBtn = document.getElementById('closeViewEventsFooter');
+    const eventsFilterSelect = document.getElementById('eventsFilterSelect');
+    const eventsPreviewList = document.getElementById('eventsPreviewList');
 
     const closeDayModalBtn = document.getElementById('closeDayModal');
     const cancelDayEventBtn = document.getElementById('cancelDayEvent');
@@ -57,6 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const dayEventTitle = document.getElementById('dayEventTitle');
     const eventDateInput = document.getElementById('eventDate');
     const templateSelect = document.getElementById('templateSelect');
+    const templateVisualSelect = document.getElementById('templateVisualSelect');
     const tagSelect = document.getElementById('tagSelect');
 
     const manageTemplateList = document.getElementById('manageTemplateList');
@@ -86,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let editingEventId = null;
     let currentUser = null;
     let calendar = null;
+    let detailedEvents = [];
 
     function normalizeHexColor(value) {
         const color = String(value || '').trim().toLowerCase();
@@ -397,6 +410,88 @@ document.addEventListener('DOMContentLoaded', function() {
         }));
     }
 
+    async function fetchDetailedEvents() {
+        try {
+            detailedEvents = await apiRequest('/api/eventos-detalle');
+            return;
+        } catch (error) {
+            // Compatibilidad con versiones anteriores del backend que no tienen /api/eventos-detalle
+            const message = String(error?.message || '');
+            if (!message.includes('Route GET:/api/eventos-detalle not found')) {
+                throw error;
+            }
+        }
+
+        const basicEvents = await apiRequest('/api/eventos');
+        detailedEvents = basicEvents.map((eventItem) => {
+            const rawTitle = String(eventItem.title || '');
+            const match = rawTitle.match(/^(.*)\s\[(.*)\]$/);
+            const title = match ? match[1].trim() : rawTitle;
+            const selectedTag = match ? match[2].trim() : '';
+            const template = templates.find((t) => t.title === title);
+
+            return {
+                id: eventItem.id,
+                templateId: template ? template.id : null,
+                title,
+                start: eventItem.start,
+                selectedTag,
+                color: eventItem.backgroundColor || DEFAULT_COLOR
+            };
+        });
+    }
+
+    function formatEventDateParts(dateStr) {
+        const date = new Date(`${dateStr}T00:00:00`);
+        const month = new Intl.DateTimeFormat('es', { month: 'long' }).format(date);
+        const day = new Intl.DateTimeFormat('es', { day: '2-digit' }).format(date);
+        return { month, day };
+    }
+
+    function renderEventsPreview() {
+        const selectedTemplateId = Number(eventsFilterSelect.value);
+        const filtered = Number.isInteger(selectedTemplateId) && selectedTemplateId > 0
+            ? detailedEvents.filter((eventItem) => eventItem.templateId === selectedTemplateId)
+            : detailedEvents;
+
+        eventsPreviewList.innerHTML = '';
+
+        if (!filtered.length) {
+            eventsPreviewList.innerHTML = '<p class="empty-message">No hay eventos para ese filtro.</p>';
+            return;
+        }
+
+        for (const eventItem of filtered) {
+            const dateParts = formatEventDateParts(eventItem.start);
+            const row = document.createElement('div');
+            row.className = 'event-preview-item';
+            row.style.borderLeftColor = eventItem.color || DEFAULT_COLOR;
+
+            row.innerHTML = `
+                <div class="event-preview-date">
+                    <span class="event-preview-month">${dateParts.month}</span>
+                    <strong class="event-preview-day">${dateParts.day}</strong>
+                </div>
+                <div class="event-preview-info">
+                    <p class="event-preview-title">${eventItem.title}</p>
+                    <p class="event-preview-tag">Etiqueta: ${eventItem.selectedTag || 'Sin etiqueta'}</p>
+                </div>
+            `;
+
+            eventsPreviewList.appendChild(row);
+        }
+    }
+
+    function fillEventsFilterOptions() {
+        eventsFilterSelect.innerHTML = '<option value="">Todos los eventos</option>';
+        for (const template of templates) {
+            const option = document.createElement('option');
+            option.value = String(template.id);
+            option.textContent = template.title;
+            eventsFilterSelect.appendChild(option);
+        }
+    }
+
     function getTemplateById(templateId) {
         return templates.find((template) => template.id === Number(templateId));
     }
@@ -652,18 +747,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function setTemplateOptions() {
         templateSelect.innerHTML = '';
+        if (templateVisualSelect) {
+            templateVisualSelect.innerHTML = '';
+        }
 
         if (!templates.length) {
-            const option = document.createElement('option');
-            option.value = '';
-            option.textContent = 'Primero crea un evento base';
-            templateSelect.appendChild(option);
-            templateSelect.disabled = true;
+            templateSelect.value = '';
+            if (templateVisualSelect) {
+                templateVisualSelect.textContent = 'Primero crea un evento base';
+            }
             tagSelect.disabled = true;
             return;
         }
 
-        templateSelect.disabled = false;
         tagSelect.disabled = false;
 
         for (const template of templates) {
@@ -671,6 +767,36 @@ document.addEventListener('DOMContentLoaded', function() {
             option.value = String(template.id);
             option.textContent = template.title;
             templateSelect.appendChild(option);
+
+            if (templateVisualSelect) {
+                const btn = document.createElement('div');
+                btn.className = 'visual-select-item';
+                const dot = document.createElement('div');
+                dot.className = 'visual-select-dot';
+                dot.style.backgroundColor = template.color;
+                
+                const span = document.createElement('span');
+                span.textContent = template.title;
+                
+                btn.appendChild(dot);
+                btn.appendChild(span);
+                
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.visual-select-item').forEach(el => el.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    templateSelect.value = String(template.id);
+                    updateTagOptions();
+                });
+                
+                templateVisualSelect.appendChild(btn);
+            }
+        }
+        
+        if (templates.length > 0) {
+            templateSelect.value = String(templates[0].id);
+            if (templateVisualSelect) {
+                templateVisualSelect.children[0].classList.add('selected');
+            }
         }
 
         updateTagOptions();
@@ -707,6 +833,14 @@ document.addEventListener('DOMContentLoaded', function() {
         calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'es',
+            firstDay: 1,
+            buttonText: {
+                today: 'Hoy',
+                month: 'Mes',
+                week: 'Semana',
+                day: 'Dia'
+            },
+            dayHeaderFormat: { weekday: 'short' },
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
@@ -729,7 +863,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!dateStr) {
                         return;
                     }
-                    await selectDateAndRender(dateStr, null, false);
+                    await selectDateAndRender(
+                        dateStr,
+                        info.jsEvent,
+                        Boolean(info.jsEvent && info.jsEvent.detail >= 2)
+                    );
                 } catch (error) {
                     showToast(error.message, true);
                 }
@@ -930,17 +1068,84 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    openViewEventsModalBtn?.addEventListener('click', async function() {
+        try {
+            await fetchTemplates();
+            await fetchDetailedEvents();
+            fillEventsFilterOptions();
+            renderEventsPreview();
+            openModal(viewEventsModal);
+        } catch (error) {
+            showToast(error.message, true);
+        }
+    });
+
+    closeViewEventsModalBtn?.addEventListener('click', function() {
+        closeModal(viewEventsModal);
+    });
+
+    closeViewEventsFooterBtn?.addEventListener('click', function() {
+        closeModal(viewEventsModal);
+    });
+
+    eventsFilterSelect?.addEventListener('change', renderEventsPreview);
+
+    async function loadAdminUsers() {
+        const users = await apiRequest('/api/admin/users');
+        adminUserList.innerHTML = '';
+        for (const u of users) {
+            const li = document.createElement('li');
+            li.className = 'admin-user-item';
+            
+            const info = document.createElement('span');
+            info.className = 'admin-user-info';
+            info.innerHTML = `<strong>${u.username}</strong> <small>(ID: ${u.id} | Creado: ${new Date(u.created_at).toLocaleDateString()})</small>`;
+            li.appendChild(info);
+
+            const actions = document.createElement('div');
+            actions.className = 'admin-user-actions';
+            
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'btn';
+            editBtn.textContent = 'Editar';
+            editBtn.onclick = () => {
+                adminEditUserForm.classList.remove('hidden');
+                adminEditUserId.value = u.id;
+                adminEditUsername.value = u.username;
+                adminEditPassword.value = '';
+                adminEditUserForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                window.setTimeout(() => adminEditUsername.focus(), 150);
+            };
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'btn btn-danger';
+            deleteBtn.textContent = 'Eliminar';
+            deleteBtn.onclick = async () => {
+                if (!confirm(`¿Eliminar al usuario ${u.username} y todos sus eventos?`)) return;
+                try {
+                    await apiRequest(`/api/admin/users/${u.id}`, { method: 'DELETE' });
+                    showToast('Usuario eliminado.');
+                    await loadAdminUsers();
+                } catch(e) {
+                    showToast(e.message, true);
+                }
+            };
+            
+            actions.appendChild(editBtn);
+            if (u.id !== currentUser?.id) {
+                actions.appendChild(deleteBtn);
+            }
+            li.appendChild(actions);
+            adminUserList.appendChild(li);
+        }
+    }
+
     openAdminModalBtn?.addEventListener('click', async function() {
         try {
-            const users = await apiRequest('/api/admin/users');
-            adminUserList.innerHTML = '';
-            for (const u of users) {
-                const li = document.createElement('li');
-                li.className = 'tag-item';
-                li.style.justifyContent = 'space-between';
-                li.innerHTML = `<span>${u.username}</span> <span>ID: ${u.id} | Creado: ${new Date(u.created_at).toLocaleDateString()}</span>`;
-                adminUserList.appendChild(li);
-            }
+            adminEditUserForm.classList.add('hidden');
+            await loadAdminUsers();
             openModal(adminModal);
         } catch (error) {
             showToast(error.message, true);
@@ -949,6 +1154,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     closeAdminModal?.addEventListener('click', function() {
         closeModal(adminModal);
+        adminEditUserForm.classList.add('hidden');
+    });
+
+    adminCancelEditBtn?.addEventListener('click', function() {
+        adminEditUserForm.classList.add('hidden');
+    });
+
+    adminEditUserForm?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const id = adminEditUserId.value;
+        const username = adminEditUsername.value.trim();
+        const password = adminEditPassword.value;
+        try {
+            await apiRequest(`/api/admin/users/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            showToast('Usuario editado correctamente.');
+            adminEditUserForm.classList.add('hidden');
+            await loadAdminUsers();
+        } catch(err) {
+            showToast(err.message, true);
+        }
     });
 
     closeTemplateModalBtn.addEventListener('click', function() {
@@ -1004,7 +1233,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    templateSelect.addEventListener('change', updateTagOptions);
+    templateSelect.addEventListener('change', () => {
+        updateTagOptions();
+        if (templateVisualSelect) {
+            Array.from(templateVisualSelect.children).forEach(child => {
+                child.classList.remove('selected');
+                if (child.textContent === templateSelect.options[templateSelect.selectedIndex].textContent) {
+                     child.classList.add('selected');
+                }
+            });
+        }
+    });
 
     templateForm.addEventListener('submit', async function(event) {
         event.preventDefault();

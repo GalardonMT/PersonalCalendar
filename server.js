@@ -288,6 +288,84 @@ fastify.get('/api/admin/users', async (request, reply) => {
     return users;
 });
 
+fastify.put('/api/admin/users/:id', async (request, reply) => {
+    const admin = await requireAuth(request, reply);
+    if (!admin) return;
+    if (!admin.is_superuser) {
+        reply.code(403); return { success: false, message: 'Acceso denegado.' };
+    }
+    
+    const targetUserId = parseInt(request.params.id, 10);
+    const newUsernameStr = String(request.body?.username || '').trim();
+    const newPasswordStr = String(request.body?.password || '');
+    
+    if (!targetUserId || targetUserId <= 0) {
+        reply.code(400); return { success: false, message: 'ID invalido.' };
+    }
+    
+    try {
+        const username = sanitizeUsername(newUsernameStr);
+        let password = null;
+        if (newPasswordStr) {
+            password = sanitizePassword(newPasswordStr);
+        }
+        
+        const existing = await db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, targetUserId]);
+        if (existing) {
+             reply.code(409); return { success: false, message: 'Ese usuario ya existe.' };
+        }
+        
+        if (password) {
+            const salt = crypto.randomBytes(16).toString('hex');
+            const hash = hashPassword(password, salt);
+            await db.run('UPDATE users SET username = ?, password_hash = ?, password_salt = ? WHERE id = ?', [username, hash, salt, targetUserId]);
+        } else {
+            await db.run('UPDATE users SET username = ? WHERE id = ?', [username, targetUserId]);
+        }
+        
+        return { success: true, message: 'Usuario actualizado correctamente.' };
+    } catch(err) {
+        reply.code(400);
+        return { success: false, message: err.message };
+    }
+});
+
+fastify.delete('/api/admin/users/:id', async (request, reply) => {
+    const admin = await requireAuth(request, reply);
+    if (!admin) return;
+    if (!admin.is_superuser) {
+        reply.code(403); return { success: false, message: 'Acceso denegado.' };
+    }
+    const targetUserId = parseInt(request.params.id, 10);
+    if (!targetUserId || targetUserId <= 0) {
+        reply.code(400); return { success: false, message: 'ID invalido.' };
+    }
+    
+    if (admin.id === targetUserId) {
+        reply.code(400); return { success: false, message: 'No puedes eliminarte a ti mismo.' };
+    }
+    
+    await db.exec('BEGIN');
+    try {
+        await db.run('DELETE FROM user_sessions WHERE user_id = ?', [targetUserId]);
+        await db.run('DELETE FROM calendar_events WHERE user_id = ?', [targetUserId]);
+        
+        const templates = await db.all('SELECT id FROM event_templates WHERE user_id = ?', [targetUserId]);
+        for(const t of templates) {
+            await db.run('DELETE FROM template_tags WHERE template_id = ?', [t.id]);
+        }
+        await db.run('DELETE FROM event_templates WHERE user_id = ?', [targetUserId]);
+        
+        await db.run('DELETE FROM users WHERE id = ?', [targetUserId]);
+        
+        await db.exec('COMMIT');
+        return { success: true, message: 'Usuario eliminado.' };
+    } catch (err) {
+        await db.exec('ROLLBACK');
+        reply.code(500); return { success: false, message: err.message };
+    }
+});
+
 fastify.post('/api/auth/register', async (request, reply) => {
     let username;
     let password;
@@ -388,6 +466,32 @@ fastify.get('/api/eventos', async (request, reply) => {
         backgroundColor: evento.color || DEFAULT_COLOR,
         borderColor: evento.color || DEFAULT_COLOR,
         textColor: getTextColorForBackground(evento.color || DEFAULT_COLOR)
+    }));
+});
+
+fastify.get('/api/eventos-detalle', async (request, reply) => {
+    const user = await requireAuth(request, reply);
+    if (!user) {
+        return;
+    }
+
+    const eventos = await db.all(
+        `
+        SELECT id, template_id, title, start, selected_tag, color
+        FROM calendar_events
+        WHERE user_id = ?
+        ORDER BY start ASC, id ASC
+        `,
+        [user.id]
+    );
+
+    return eventos.map((evento) => ({
+        id: evento.id,
+        templateId: evento.template_id,
+        title: evento.title,
+        start: evento.start,
+        selectedTag: evento.selected_tag || '',
+        color: evento.color || DEFAULT_COLOR
     }));
 });
 

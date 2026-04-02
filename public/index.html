@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendario n8n</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales-all.global.min.js'></script>
     
     <link rel="stylesheet" href="style.css">
 </head>
@@ -59,6 +63,7 @@
                 <span id="currentUserLabel" class="current-user"></span>
                 <button id="openAdminModal" class="btn hidden" type="button">Admin</button>
                 <button id="openManageModal" class="btn" type="button">Gestionar eventos</button>
+                <button id="openViewEventsModal" class="btn" type="button">Ver Eventos</button>
                 <button id="openTemplateModal" class="btn btn-primary" type="button">+ Nuevo evento</button>
                 <button id="logoutBtn" class="btn" type="button">Salir</button>
             </div>
@@ -122,8 +127,9 @@
                 <label for="eventDate">Fecha</label>
                 <input id="eventDate" type="date" required readonly autocomplete="off" />
 
-                <label for="templateSelect">Evento base</label>
-                <select id="templateSelect" required></select>
+                <label>Evento base a asignar</label>
+                <div id="templateVisualSelect" class="visual-select-list"></div>
+                <input type="hidden" id="templateSelect" required>
 
                 <label for="tagSelect">Etiqueta (opcional)</label>
                 <select id="tagSelect"></select>
@@ -136,18 +142,53 @@
         </div>
     </div>
 
+    <div id="viewEventsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="viewEventsTitle">
+        <div class="modal-card view-events-card">
+            <div class="modal-header">
+                <h2 id="viewEventsTitle">Ver Eventos</h2>
+                <button id="closeViewEventsModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+            </div>
+            <div class="modal-body">
+                <label for="eventsFilterSelect">Filtrar por evento base</label>
+                <select id="eventsFilterSelect">
+                    <option value="">Todos los eventos</option>
+                </select>
+
+                <div id="eventsPreviewList" class="events-preview-list">
+                    <p class="empty-message">No hay eventos para mostrar.</p>
+                </div>
+
+                <div class="modal-footer">
+                    <button id="closeViewEventsFooter" class="btn" type="button">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="toast hidden" aria-live="polite"></div>
 
     <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
-        <div class="modal-card">
+        <div class="modal-card admin-modal-card">
             <div class="modal-header">
                 <h2 id="adminModalTitle">Panel de Administrador</h2>
                 <button id="closeAdminModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
             </div>
-            <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+            <div class="modal-body admin-users-section">
                 <h3>Usuarios Registrados</h3>
-                <ul id="adminUserList" class="tag-list" style="flex-direction: column; align-items: stretch; margin-top: 10px;"></ul>
+                <ul id="adminUserList" class="admin-user-list"></ul>
             </div>
+            <form id="adminEditUserForm" class="modal-body admin-edit-form hidden">
+                <h3>Editar Usuario</h3>
+                <input type="hidden" id="adminEditUserId">
+                <label for="adminEditUsername">Nombre de usuario</label>
+                <input id="adminEditUsername" type="text" required>
+                <label for="adminEditPassword">Nueva contraseña (dejar vacio para no cambiar)</label>
+                <input id="adminEditPassword" type="password">
+                <div class="modal-footer between">
+                    <button type="button" class="btn" id="adminCancelEditBtn">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
         </div>
     </div>
 
