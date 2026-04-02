@@ -57,6 +57,7 @@
             <h1>Mi Calendario</h1>
             <div class="topbar-actions">
                 <span id="currentUserLabel" class="current-user"></span>
+                <button id="openAdminModal" class="btn hidden" type="button">Admin</button>
                 <button id="openManageModal" class="btn" type="button">Gestionar eventos</button>
                 <button id="openTemplateModal" class="btn btn-primary" type="button">+ Nuevo evento</button>
                 <button id="logoutBtn" class="btn" type="button">Salir</button>
@@ -137,6 +138,19 @@
 
     <div id="toast" class="toast hidden" aria-live="polite"></div>
 
+    <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="adminModalTitle">Panel de Administrador</h2>
+                <button id="closeAdminModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+            </div>
+            <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                <h3>Usuarios Registrados</h3>
+                <ul id="adminUserList" class="tag-list" style="flex-direction: column; align-items: stretch; margin-top: 10px;"></ul>
+            </div>
+        </div>
+    </div>
+
     <div id="manageModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="manageModalTitle">
         <div class="modal-card manage-card">
             <div class="modal-header">
@@ -165,7 +179,10 @@
                         <div id="manageTagList" class="tag-list"></div>
 
                         <div class="modal-footer between">
-                            <button id="deleteTemplateBtn" class="btn btn-danger" type="button">Eliminar</button>
+                            <div class="left-actions" style="display: flex; gap: 8px;">
+                                <button id="deleteTemplateBtn" class="btn btn-danger" type="button">Eliminar</button>
+                                <button id="duplicateTemplateBtn" class="btn" type="button">Duplicar</button>
+                            </div>
                             <div class="right-actions">
                                 <button class="btn" type="button" id="cancelManage">Cerrar</button>
                                 <button class="btn btn-primary" type="submit">Guardar cambios</button>

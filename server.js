@@ -29,9 +29,17 @@ async function iniciarDB() {
             username TEXT NOT NULL UNIQUE COLLATE NOCASE,
             password_hash TEXT NOT NULL,
             password_salt TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            is_superuser INTEGER DEFAULT 0
         )
     `);
+
+    // Migration para base de datos existente
+    try {
+        await db.exec('ALTER TABLE users ADD COLUMN is_superuser INTEGER DEFAULT 0');
+    } catch(e) {
+        // Ignorar si la columna ya existe
+    }
 
     await db.exec(`
         CREATE TABLE IF NOT EXISTS user_sessions (
@@ -212,7 +220,7 @@ async function getCurrentUser(request) {
 
     const session = await db.get(
         `
-        SELECT s.id, s.user_id, s.expires_at, u.username
+        SELECT s.id, s.user_id, s.expires_at, u.username, u.is_superuser
         FROM user_sessions s
         JOIN users u ON u.id = s.user_id
         WHERE s.token = ?
@@ -232,7 +240,8 @@ async function getCurrentUser(request) {
     return {
         id: session.user_id,
         username: session.username,
-        token
+        token,
+        is_superuser: session.is_superuser === 1
     };
 }
 
@@ -265,7 +274,18 @@ fastify.get('/api/auth/me', async (request, reply) => {
         reply.code(401);
         return { success: false, message: 'No autenticado.' };
     }
-    return { success: true, user: { id: user.id, username: user.username } };
+    return { success: true, user: { id: user.id, username: user.username, is_superuser: user.is_superuser } };
+});
+
+fastify.get('/api/admin/users', async (request, reply) => {
+    const user = await requireAuth(request, reply);
+    if (!user) return;
+    if (!user.is_superuser) {
+        reply.code(403);
+        return { success: false, message: 'Acceso denegado. Se requiere ser administrador.' };
+    }
+    const users = await db.all('SELECT id, username, created_at FROM users ORDER BY id DESC');
+    return users;
 });
 
 fastify.post('/api/auth/register', async (request, reply) => {
@@ -308,7 +328,7 @@ fastify.post('/api/auth/login', async (request, reply) => {
         return { success: false, message: error.message };
     }
 
-    const user = await db.get('SELECT id, username, password_hash, password_salt FROM users WHERE username = ?', [username]);
+const user = await db.get('SELECT id, username, password_hash, password_salt, is_superuser FROM users WHERE username = ?', [username]);
     if (!user) {
         reply.code(401);
         return { success: false, message: 'Usuario o contrasena incorrectos.' };
@@ -332,7 +352,7 @@ fastify.post('/api/auth/login', async (request, reply) => {
     ]);
 
     reply.header('Set-Cookie', buildSessionCookie(token, expiresAt));
-    return { success: true, message: 'Login correcto.', user: { id: user.id, username: user.username } };
+    return { success: true, message: 'Login correcto.', user: { id: user.id, username: user.username, is_superuser: user.is_superuser === 1 } };
 });
 
 fastify.post('/api/auth/logout', async (request, reply) => {

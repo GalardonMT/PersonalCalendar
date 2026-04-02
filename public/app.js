@@ -14,6 +14,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginView = document.getElementById('loginView');
     const registerView = document.getElementById('registerView');
     const showRegisterBtn = document.getElementById('showRegisterBtn');
+    const openAdminModalBtn = document.getElementById('openAdminModal');
+    const adminModal = document.getElementById('adminModal');
+    const closeAdminModal = document.getElementById('closeAdminModal');
+    const adminUserList = document.getElementById('adminUserList');
     const showLoginBtn = document.getElementById('showLoginBtn');
 
     const loginForm = document.getElementById('loginForm');
@@ -62,6 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const addManageTagBtn = document.getElementById('addManageTagBtn');
     const manageTagList = document.getElementById('manageTagList');
     const deleteTemplateBtn = document.getElementById('deleteTemplateBtn');
+    const duplicateTemplateBtn = document.getElementById('duplicateTemplateBtn');
     const manageColorOptions = document.getElementById('manageColorOptions');
     const dayPanelTitle = document.getElementById('dayPanelTitle');
     const dayPanelHint = document.getElementById('dayPanelHint');
@@ -179,12 +184,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentUserLabel) {
             currentUserLabel.textContent = currentUser ? `Usuario: ${currentUser.username}` : '';
         }
+        if (currentUser?.is_superuser) {
+            openAdminModalBtn.classList.remove('hidden');
+        } else {
+            openAdminModalBtn.classList.add('hidden');
+        }
         if (calendar) {
             window.setTimeout(() => calendar.updateSize(), 0);
         }
     }
 
     async function apiRequest(url, options) {
+        if (window.location.protocol === 'file:') {
+            throw new Error('Por favor, abre la aplicacion desde http://localhost:3000 para que funcione correctamente, no desde el archivo local.');
+        }
         const response = await fetch(url, options);
         let payload = null;
         try {
@@ -200,7 +213,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (!response.ok) {
-            throw new Error(payload?.message || 'Error en la solicitud.');
+            throw new Error(payload?.message || `Error del servidor (${response.status}). Asegurate de que el servidor este encendido.`);
         }
 
         return payload;
@@ -917,6 +930,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    openAdminModalBtn?.addEventListener('click', async function() {
+        try {
+            const users = await apiRequest('/api/admin/users');
+            adminUserList.innerHTML = '';
+            for (const u of users) {
+                const li = document.createElement('li');
+                li.className = 'tag-item';
+                li.style.justifyContent = 'space-between';
+                li.innerHTML = `<span>${u.username}</span> <span>ID: ${u.id} | Creado: ${new Date(u.created_at).toLocaleDateString()}</span>`;
+                adminUserList.appendChild(li);
+            }
+            openModal(adminModal);
+        } catch (error) {
+            showToast(error.message, true);
+        }
+    });
+
+    closeAdminModal?.addEventListener('click', function() {
+        closeModal(adminModal);
+    });
+
     closeTemplateModalBtn.addEventListener('click', function() {
         closeModal(templateModal);
         resetTemplateForm();
@@ -1097,6 +1131,42 @@ document.addEventListener('DOMContentLoaded', function() {
             renderManageTemplateList();
             hydrateManageForm();
             showToast('Evento base eliminado.');
+        } catch (error) {
+            showToast(error.message, true);
+        }
+    });
+
+    duplicateTemplateBtn.addEventListener('click', async function() {
+        if (!selectedManageTemplateId) {
+            showToast('Selecciona un evento base.', true);
+            return;
+        }
+
+        const currentTemplate = templates.find(t => t.id === selectedManageTemplateId);
+        if (!currentTemplate) return;
+
+        const titleInput = document.getElementById('manageTemplateTitle').value.trim();
+
+        try {
+            const body = {
+                title: (titleInput || currentTemplate.title) + ' (Copia)',
+                color: selectedManageColor || currentTemplate.color,
+                tags: [...manageWorkingTags]
+            };
+
+            await apiRequest('/api/plantillas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            await fetchTemplates();
+            if (templates.length > 0) {
+                selectedManageTemplateId = templates[0].id; // Es ordenado por ID descendente en el backend
+            }
+            renderManageTemplateList();
+            hydrateManageForm();
+            showToast('Evento base duplicado.');
         } catch (error) {
             showToast(error.message, true);
         }
