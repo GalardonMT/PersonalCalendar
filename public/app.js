@@ -99,6 +99,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentUser = null;
     let calendar = null;
     let detailedEvents = [];
+    const DOUBLE_TAP_DELAY_MS = 350;
+    let lastTapDateStr = '';
+    let lastTapTimestamp = 0;
 
     function normalizeHexColor(value) {
         const color = String(value || '').trim().toLowerCase();
@@ -623,6 +626,37 @@ document.addEventListener('DOMContentLoaded', function() {
         return raw.includes('T') ? raw.split('T')[0] : raw;
     }
 
+    function shouldOpenModalFromInteraction(dateStr, jsEvent) {
+        if (Boolean(jsEvent && jsEvent.detail >= 2)) {
+            return true;
+        }
+
+        if (!dateStr || !jsEvent) {
+            return false;
+        }
+
+        const eventType = String(jsEvent.type || '');
+        const pointerType = String(jsEvent.pointerType || '');
+        const isTouchLikeInteraction = pointerType === 'touch' || eventType.startsWith('touch') || (eventType === 'click' && window.matchMedia('(hover: none)').matches);
+        if (!isTouchLikeInteraction) {
+            return false;
+        }
+
+        const now = Date.now();
+        const isSameDate = lastTapDateStr === dateStr;
+        const isWithinDelay = now - lastTapTimestamp <= DOUBLE_TAP_DELAY_MS;
+        lastTapDateStr = dateStr;
+        lastTapTimestamp = now;
+
+        if (isSameDate && isWithinDelay) {
+            lastTapDateStr = '';
+            lastTapTimestamp = 0;
+            return true;
+        }
+
+        return false;
+    }
+
     async function selectDateAndRender(dateStr, jsEvent, openModalOnDoubleClick) {
         await fetchTemplates();
         selectedDate = dateStr;
@@ -851,7 +885,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     await selectDateAndRender(
                         info.dateStr,
                         info.jsEvent,
-                        Boolean(info.jsEvent && info.jsEvent.detail >= 2)
+                        shouldOpenModalFromInteraction(info.dateStr, info.jsEvent)
                     );
                 } catch (error) {
                     showToast(error.message, true);
@@ -866,7 +900,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     await selectDateAndRender(
                         dateStr,
                         info.jsEvent,
-                        Boolean(info.jsEvent && info.jsEvent.detail >= 2)
+                        shouldOpenModalFromInteraction(dateStr, info.jsEvent)
                     );
                 } catch (error) {
                     showToast(error.message, true);
