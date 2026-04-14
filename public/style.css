@@ -684,6 +684,16 @@ body {
     font-weight: 600;
 }
 
+/* Atenua etiquetas/eventos en dias fuera del mes visible */
+.fc .fc-dayGridMonth-view .fc-day-other .fc-daygrid-event {
+    opacity: 0.42;
+}
+
+.fc .fc-dayGridMonth-view .fc-day-other .fc-daygrid-event:hover,
+.fc .fc-dayGridMonth-view .fc-day-other .fc-daygrid-event:focus-visible {
+    opacity: 0.62;
+}
+
 .view-events-card {
     width: min(720px, 100%);
 }

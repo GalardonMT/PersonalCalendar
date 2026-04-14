@@ -451,7 +451,7 @@ fastify.get('/api/eventos', async (request, reply) => {
 
     const eventos = await db.all(
         `
-        SELECT id, title, start, selected_tag, color
+        SELECT id, template_id, title, start, selected_tag, color
         FROM calendar_events
         WHERE user_id = ?
         `,
@@ -463,6 +463,8 @@ fastify.get('/api/eventos', async (request, reply) => {
         title: evento.selected_tag ? `${evento.title} [${evento.selected_tag}]` : evento.title,
         start: evento.start,
         allDay: true,
+        templateId: evento.template_id,
+        selectedTag: evento.selected_tag || '',
         backgroundColor: evento.color || DEFAULT_COLOR,
         borderColor: evento.color || DEFAULT_COLOR,
         textColor: getTextColorForBackground(evento.color || DEFAULT_COLOR)
@@ -771,6 +773,7 @@ fastify.put('/api/eventos/:id', async (request, reply) => {
     const eventId = Number(request.params?.id);
     const templateId = Number(request.body?.templateId);
     const selectedTag = String(request.body?.selectedTag || '').trim();
+    const start = String(request.body?.start || '').trim();
 
     if (!Number.isInteger(eventId) || eventId <= 0) {
         reply.code(400);
@@ -780,6 +783,11 @@ fastify.put('/api/eventos/:id', async (request, reply) => {
     if (!Number.isInteger(templateId) || templateId <= 0) {
         reply.code(400);
         return { success: false, message: 'Plantilla invalida.' };
+    }
+
+    if (start && !/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+        reply.code(400);
+        return { success: false, message: 'Fecha invalida. Usa formato YYYY-MM-DD.' };
     }
 
     const currentEvent = await db.get('SELECT id FROM calendar_events WHERE id = ? AND user_id = ?', [eventId, user.id]);
@@ -811,10 +819,10 @@ fastify.put('/api/eventos/:id', async (request, reply) => {
     await db.run(
         `
         UPDATE calendar_events
-        SET template_id = ?, title = ?, selected_tag = ?, color = ?
+        SET template_id = ?, title = ?, selected_tag = ?, color = ?, start = COALESCE(?, start)
         WHERE id = ? AND user_id = ?
         `,
-        [templateId, template.title, selectedTag, template.color || DEFAULT_COLOR, eventId, user.id]
+        [templateId, template.title, selectedTag, template.color || DEFAULT_COLOR, start || null, eventId, user.id]
     );
 
     return { success: true, message: 'Evento actualizado' };

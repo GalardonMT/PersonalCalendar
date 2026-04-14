@@ -799,6 +799,78 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Esta funcion es llamada por FullCalendar cuando un evento termina de arrastrarse a otra fecha.
+    // info contiene datos del evento movido, su fecha vieja y la nueva.
+    async function handleEventDrop(info) {
+        // Extraemos atributos clave del evento. FullCalendar guarda nuestras
+        // propiedades extras (templateId, selectedTag) en "extendedProps".
+        const eventId = Number(info.event?.id);
+        const templateId = Number(info.event?.extendedProps?.templateId);
+        const selectedTag = String(info.event?.extendedProps?.selectedTag || '');
+        
+        // Formateamos las fechas de String ISO a formato puro (YYYY-MM-DD)
+        const oldDate = normalizeDateFromEventStart(info.oldEvent?.startStr);
+        const newDate = normalizeDateFromEventStart(info.event?.startStr);
+
+        // Si faltan datos en el evento, lo devolvemos a su lugar original y mostramos error.
+        if (!Number.isInteger(eventId) || eventId <= 0 || !Number.isInteger(templateId) || templateId <= 0 || !newDate) {
+            info.revert();
+            showToast('No se pudo mover el evento. Intenta recargar la pagina.', true);
+            return;
+        }
+
+        // Si realmente no cambió de fecha, ignoramos.
+        if (oldDate && oldDate === newDate) {
+            return;
+        }
+
+        // Mostramos al usuario un modal de confirmación antes de guardar.
+        const ok = await customConfirm(
+            `¿Mover este evento del ${getDateTitle(oldDate)} al ${getDateTitle(newDate)}?`,
+            {
+                title: 'Confirmar cambio de fecha',
+                confirmText: 'Mover',
+                cancelText: 'Cancelar'
+            }
+        );
+
+        // Si elige cancelar o cierra el cuadro, revertimos el arrastre en la interfaz (sin peticiones)
+        if (!ok) {
+            info.revert();
+            return;
+        }
+
+        try {
+            // Guardar el cambió en la base de datos con una petición PUT (actualizar)
+            await apiRequest(`/api/eventos/${eventId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    templateId,
+                    selectedTag,
+                    start: newDate
+                })
+            });
+
+            // Actualizamos la vista de día a la derecha si es que afectó el día seleccionado.
+            if (selectedDate) {
+                await fetchDayEvents(selectedDate);
+                renderDayPanelView();
+            }
+            
+            // Recargamos el feed interno de "todos" los eventos y refrescamos el calendario
+            await fetchDetailedEvents();
+            if (calendar) {
+                calendar.refetchEvents();
+            }
+            showToast('Evento movido de fecha.');
+        } catch (error) {
+            // Si hubo error de backend (ej. desconectado), revertimos el elemento.
+            info.revert();
+            showToast(error.message, true);
+        }
+    }
+
     function buildTagOptions(select, templateId, selectedTag) {
         select.innerHTML = '';
 
@@ -983,6 +1055,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Configuracion e inicio del calendario en pantalla principal usando libreria "FullCalendar"
     function initCalendar() {
         if (calendar) {
             return;
@@ -991,7 +1064,11 @@ document.addEventListener('DOMContentLoaded', function() {
         calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'es',
-            firstDay: 1,
+            firstDay: 1, // La semana empieza en Lunes
+            // Habilitamos arrastrar eventos pero desactivamos modificar tiempo (tamaño)
+            editable: true,
+            eventStartEditable: true,
+            eventDurationEditable: false,
             buttonText: {
                 today: 'Hoy',
                 month: 'Mes',
@@ -1000,10 +1077,11 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             dayHeaderFormat: { weekday: 'short' },
             headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                left: 'prev,next today', // Botones lado izq: Atras, Adelante, Volver a Hoy
+                center: 'title',         // Titulo del mes (centro)
+                right: 'dayGridMonth,timeGridWeek,timeGridDay' // Alternativas de vista (derecha)
             },
+            // Callback al dar click a una celda (dia) vacía o sin que el evento pida propagacion.
             dateClick: async function(info) {
                 try {
                     await selectDateAndRender(
@@ -1015,12 +1093,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     showToast(error.message, true);
                 }
             },
+            // Callback de FullCalendar al dar click específico a un evento renderizado
             eventClick: async function(info) {
                 try {
                     const dateStr = normalizeDateFromEventStart(info.event.startStr);
                     if (!dateStr) {
                         return;
                     }
+                    // Simulamos click con el día donde está ubicado este evento.
                     await selectDateAndRender(
                         dateStr,
                         info.jsEvent,
@@ -1030,6 +1110,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     showToast(error.message, true);
                 }
             },
+            // Callback que maneja el cambio de fecha drag & drop (la logica vive arriba).
+            eventDrop: async function(info) {
+                await handleEventDrop(info);
+            },
+            // Callback para cargar eventos. Fetch automatico de data a nuestro endpoint `/api/eventos`
             events: function(fetchInfo, successCallback, failureCallback) {
                 apiRequest('/api/eventos')
                     .then((data) => {
@@ -1042,6 +1127,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
+        // Montar HTML del calendario
         calendar.render();
     }
 
