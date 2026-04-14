@@ -193,7 +193,18 @@
                 <h3>Usuarios Registrados</h3>
                 <ul id="adminUserList" class="admin-user-list"></ul>
             </div>
-            <form id="adminEditUserForm" class="modal-body admin-edit-form hidden">
+        </div>
+    </div>
+    </div>
+
+    <!-- Modal separado para editar usuario: se abre solo al hacer click en Editar -->
+    <div id="adminEditModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminEditModalTitle">
+        <div class="modal-card admin-modal-card">
+            <div class="modal-header">
+                <h2 id="adminEditModalTitle">Editar Usuario</h2>
+                <button id="adminEditModalCloseBtn" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+            </div>
+            <form id="adminEditUserForm" class="modal-body admin-edit-form">
                 <h3>Editar Usuario</h3>
                 <input type="hidden" id="adminEditUserId">
                 <label for="adminEditUsername">Nombre de usuario</label>
@@ -205,6 +216,8 @@
                     <button type="submit" class="btn btn-primary">Guardar</button>
                 </div>
             </form>
+        </div>
+    </div>
         </div>
     </div>
 

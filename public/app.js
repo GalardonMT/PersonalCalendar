@@ -18,11 +18,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const adminModal = document.getElementById('adminModal');
     const closeAdminModal = document.getElementById('closeAdminModal');
     const adminUserList = document.getElementById('adminUserList');
+    const adminEditModal = document.getElementById('adminEditModal');
     const adminEditUserForm = document.getElementById('adminEditUserForm');
     const adminEditUserId = document.getElementById('adminEditUserId');
     const adminEditUsername = document.getElementById('adminEditUsername');
     const adminEditPassword = document.getElementById('adminEditPassword');
     const adminCancelEditBtn = document.getElementById('adminCancelEditBtn');
+    const adminEditModalCloseBtn = document.getElementById('adminEditModalCloseBtn');
     const showLoginBtn = document.getElementById('showLoginBtn');
 
     const loginForm = document.getElementById('loginForm');
@@ -1381,11 +1383,11 @@ document.addEventListener('DOMContentLoaded', function() {
             editBtn.className = 'btn';
             editBtn.textContent = 'Editar';
             editBtn.onclick = () => {
-                adminEditUserForm.classList.remove('hidden');
+                // Abrir el modal separado para editar el usuario
                 adminEditUserId.value = u.id;
                 adminEditUsername.value = u.username;
                 adminEditPassword.value = '';
-                adminEditUserForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                openModal(adminEditModal);
                 window.setTimeout(() => adminEditUsername.focus(), 150);
             };
             
@@ -1420,7 +1422,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     openAdminModalBtn?.addEventListener('click', async function() {
         try {
-            adminEditUserForm.classList.add('hidden');
+            // Asegurar que el modal de editar usuario esté cerrado al abrir la lista
+            closeModal(adminEditModal);
             await loadAdminUsers();
             openModal(adminModal);
         } catch (error) {
@@ -1430,11 +1433,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     closeAdminModal?.addEventListener('click', function() {
         closeModal(adminModal);
-        adminEditUserForm.classList.add('hidden');
+        // cerrar tambien el modal de editar si está abierto
+        closeModal(adminEditModal);
     });
 
     adminCancelEditBtn?.addEventListener('click', function() {
-        adminEditUserForm.classList.add('hidden');
+        closeModal(adminEditModal);
+    });
+
+    adminEditModalCloseBtn?.addEventListener('click', function() {
+        closeModal(adminEditModal);
     });
 
     adminEditUserForm?.addEventListener('submit', async function(e) {
@@ -1442,6 +1450,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const id = adminEditUserId.value;
         const username = adminEditUsername.value.trim();
         const password = adminEditPassword.value;
+        // Preguntar al usuario si desea guardar los cambios antes de enviar
+        const confirmMsg = `¿Deseas guardar los cambios para el usuario "${username}"?`;
+        const ok = await customConfirm(confirmMsg, {
+            title: 'Confirmar guardado',
+            confirmText: 'Guardar',
+            cancelText: 'Cancelar'
+        });
+        if (!ok) {
+            showToast('Guardado cancelado.');
+            return;
+        }
+
         try {
             await apiRequest(`/api/admin/users/${id}`, {
                 method: 'PUT',
@@ -1449,7 +1469,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ username, password })
             });
             showToast('Usuario editado correctamente.');
-            adminEditUserForm.classList.add('hidden');
+            closeModal(adminEditModal);
             await loadAdminUsers();
         } catch(err) {
             showToast(err.message, true);

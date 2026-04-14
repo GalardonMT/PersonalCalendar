@@ -84,7 +84,7 @@ node make-admin.js <nombre_de_usuario>
 Ejemplo:
 
 ```bash
-node make-admin.js juan
+node make-admin.js matias
 ```
 
 ## Ejecutar con Docker (opcional)
