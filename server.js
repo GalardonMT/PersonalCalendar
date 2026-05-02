@@ -58,6 +58,7 @@ async function iniciarDB() {
             user_id INTEGER,
             title TEXT NOT NULL,
             color TEXT NOT NULL DEFAULT '${DEFAULT_COLOR}',
+            description TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     `);
@@ -80,6 +81,7 @@ async function iniciarDB() {
             title TEXT NOT NULL,
             start TEXT NOT NULL,
             selected_tag TEXT NOT NULL,
+            description TEXT,
             color TEXT NOT NULL DEFAULT '${DEFAULT_COLOR}',
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (template_id) REFERENCES event_templates(id) ON DELETE RESTRICT
@@ -87,7 +89,9 @@ async function iniciarDB() {
     `);
 
     await ensureColumn('event_templates', 'color', `TEXT NOT NULL DEFAULT '${DEFAULT_COLOR}'`);
+    await ensureColumn('event_templates', 'description', 'TEXT');
     await ensureColumn('calendar_events', 'color', `TEXT NOT NULL DEFAULT '${DEFAULT_COLOR}'`);
+    await ensureColumn('calendar_events', 'description', 'TEXT');
     await ensureColumn('event_templates', 'user_id', 'INTEGER');
     await ensureColumn('calendar_events', 'user_id', 'INTEGER');
 
@@ -451,13 +455,12 @@ fastify.get('/api/eventos', async (request, reply) => {
 
     const eventos = await db.all(
         `
-        SELECT id, template_id, title, start, selected_tag, color
+        SELECT id, template_id, title, start, selected_tag, description, color
         FROM calendar_events
         WHERE user_id = ?
         `,
         [user.id]
     );
-
     return eventos.map((evento) => ({
         id: evento.id,
         title: evento.selected_tag ? `${evento.title} [${evento.selected_tag}]` : evento.title,
@@ -465,6 +468,7 @@ fastify.get('/api/eventos', async (request, reply) => {
         allDay: true,
         templateId: evento.template_id,
         selectedTag: evento.selected_tag || '',
+        description: evento.description || '',
         backgroundColor: evento.color || DEFAULT_COLOR,
         borderColor: evento.color || DEFAULT_COLOR,
         textColor: getTextColorForBackground(evento.color || DEFAULT_COLOR)
@@ -479,20 +483,20 @@ fastify.get('/api/eventos-detalle', async (request, reply) => {
 
     const eventos = await db.all(
         `
-        SELECT id, template_id, title, start, selected_tag, color
+        SELECT id, template_id, title, start, selected_tag, description, color
         FROM calendar_events
         WHERE user_id = ?
         ORDER BY start ASC, id ASC
         `,
         [user.id]
     );
-
     return eventos.map((evento) => ({
         id: evento.id,
         templateId: evento.template_id,
         title: evento.title,
         start: evento.start,
         selectedTag: evento.selected_tag || '',
+        description: evento.description || '',
         color: evento.color || DEFAULT_COLOR
     }));
 });
@@ -511,20 +515,20 @@ fastify.get('/api/eventos-dia/:date', async (request, reply) => {
 
     const eventos = await db.all(
         `
-        SELECT id, template_id, title, start, selected_tag, color
+        SELECT id, template_id, title, start, selected_tag, description, color
         FROM calendar_events
         WHERE start = ? AND user_id = ?
         ORDER BY id ASC
         `,
         [date, user.id]
     );
-
     return eventos.map((evento) => ({
         id: evento.id,
         templateId: evento.template_id,
         title: evento.title,
         start: evento.start,
         selectedTag: evento.selected_tag || '',
+        description: evento.description || '',
         color: evento.color || DEFAULT_COLOR
     }));
 });
@@ -536,7 +540,7 @@ fastify.get('/api/plantillas', async (request, reply) => {
     }
 
     const templates = await db.all(
-        'SELECT id, title, color FROM event_templates WHERE user_id = ? ORDER BY id DESC',
+        'SELECT id, title, color, description FROM event_templates WHERE user_id = ? ORDER BY id DESC',
         [user.id]
     );
 
@@ -550,6 +554,7 @@ fastify.get('/api/plantillas', async (request, reply) => {
             id: template.id,
             title: template.title,
             color: template.color || DEFAULT_COLOR,
+            description: template.description || '',
             tags: tags.map((t) => t.name)
         });
     }
@@ -594,8 +599,8 @@ fastify.post('/api/plantillas', async (request, reply) => {
     await db.exec('BEGIN');
     try {
         const insertTemplate = await db.run(
-            'INSERT INTO event_templates (user_id, title, color) VALUES (?, ?, ?)',
-            [user.id, title, color]
+            'INSERT INTO event_templates (user_id, title, color, description) VALUES (?, ?, ?, ?)',
+            [user.id, title, color, String(request.body?.description || '')]
         );
         const templateId = insertTemplate.lastID;
 
@@ -659,15 +664,17 @@ fastify.put('/api/plantillas/:id', async (request, reply) => {
 
     await db.exec('BEGIN');
     try {
-        await db.run('UPDATE event_templates SET title = ?, color = ? WHERE id = ? AND user_id = ?', [
+        await db.run('UPDATE event_templates SET title = ?, color = ?, description = ? WHERE id = ? AND user_id = ?', [
             title,
             color,
+            String(request.body?.description || ''),
             templateId,
             user.id
         ]);
-        await db.run('UPDATE calendar_events SET title = ?, color = ? WHERE template_id = ? AND user_id = ?', [
+        await db.run('UPDATE calendar_events SET title = ?, color = ?, description = ? WHERE template_id = ? AND user_id = ?', [
             title,
             color,
+            String(request.body?.description || ''),
             templateId,
             user.id
         ]);
@@ -756,9 +763,10 @@ fastify.post('/api/eventos', async (request, reply) => {
         }
     }
 
+    const eventDescription = String(request.body?.description || template.description || '');
     await db.run(
-        'INSERT INTO calendar_events (user_id, template_id, title, start, selected_tag, color) VALUES (?, ?, ?, ?, ?, ?)',
-        [user.id, templateId, template.title, start, selectedTag, template.color || DEFAULT_COLOR]
+        'INSERT INTO calendar_events (user_id, template_id, title, start, selected_tag, description, color) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [user.id, templateId, template.title, start, selectedTag, eventDescription, template.color || DEFAULT_COLOR]
     );
 
     return { success: true, message: 'Evento guardado' };
@@ -819,10 +827,10 @@ fastify.put('/api/eventos/:id', async (request, reply) => {
     await db.run(
         `
         UPDATE calendar_events
-        SET template_id = ?, title = ?, selected_tag = ?, color = ?, start = COALESCE(?, start)
+        SET template_id = ?, title = ?, selected_tag = ?, description = COALESCE(?, description), color = ?, start = COALESCE(?, start)
         WHERE id = ? AND user_id = ?
         `,
-        [templateId, template.title, selectedTag, template.color || DEFAULT_COLOR, start || null, eventId, user.id]
+        [templateId, template.title, selectedTag, String(request.body?.description || null), template.color || DEFAULT_COLOR, start || null, eventId, user.id]
     );
 
     return { success: true, message: 'Evento actualizado' };

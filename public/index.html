@@ -98,6 +98,9 @@
                 <label for="templateTitle">Titulo</label>
                 <input id="templateTitle" type="text" maxlength="120" required placeholder="Ej. Reunión semanal" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
 
+                <label for="templateDescription">Descripcion (opcional)</label>
+                <textarea id="templateDescription" maxlength="1000" placeholder="Descripcion del evento base" rows="3"></textarea>
+
                 <label>Color del evento</label>
                 <div id="templateColorOptions" class="color-grid" aria-label="Seleccion de color"></div>
 
@@ -133,6 +136,9 @@
 
                 <label for="tagSelect">Etiqueta (opcional)</label>
                 <select id="tagSelect"></select>
+
+                <label for="eventDescription">Descripcion del evento (opcional)</label>
+                <textarea id="eventDescription" maxlength="1000" placeholder="Descripcion para este evento" rows="3"></textarea>
 
                 <div class="modal-footer">
                     <button class="btn" type="button" id="cancelDayEvent">Cancelar</button>
@@ -237,6 +243,9 @@
                     <form id="manageTemplateForm" class="modal-body" autocomplete="off">
                         <label for="manageTemplateTitle">Titulo</label>
                         <input id="manageTemplateTitle" type="text" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+                        <label for="manageTemplateDescription">Descripcion (opcional)</label>
+                        <textarea id="manageTemplateDescription" maxlength="1000" placeholder="Descripcion del evento base" rows="3"></textarea>
 
                         <label>Color del evento</label>
                         <div id="manageColorOptions" class="color-grid" aria-label="Seleccion de color"></div>

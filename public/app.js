@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const templateForm = document.getElementById('templateForm');
     const templateTitleInput = document.getElementById('templateTitle');
+    const templateDescriptionInput = document.getElementById('templateDescription');
     const tagInput = document.getElementById('tagInput');
     const addTagBtn = document.getElementById('addTagBtn');
     const tagList = document.getElementById('tagList');
@@ -79,10 +80,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const templateSelect = document.getElementById('templateSelect');
     const templateVisualSelect = document.getElementById('templateVisualSelect');
     const tagSelect = document.getElementById('tagSelect');
+    const eventDescriptionInput = document.getElementById('eventDescription');
 
     const manageTemplateList = document.getElementById('manageTemplateList');
     const manageTemplateForm = document.getElementById('manageTemplateForm');
     const manageTemplateTitleInput = document.getElementById('manageTemplateTitle');
+    const manageTemplateDescriptionInput = document.getElementById('manageTemplateDescription');
     const manageTagInput = document.getElementById('manageTagInput');
     const addManageTagBtn = document.getElementById('addManageTagBtn');
     const manageTagList = document.getElementById('manageTagList');
@@ -412,12 +415,17 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedTemplateColor = DEFAULT_COLOR;
         renderWorkingTags();
         renderColorOptions(templateColorOptions, selectedTemplateColor, onTemplateColorSelect);
+        if (templateDescriptionInput) {
+            templateDescriptionInput.value = '';
+            templateDescriptionInput.readOnly = false;
+        }
     }
 
     function resetDayForm() {
         dayEventForm.reset();
         templateSelect.innerHTML = '';
         tagSelect.innerHTML = '';
+        if (eventDescriptionInput) eventDescriptionInput.value = '';
     }
 
     function getVisibleManageDrafts() {
@@ -434,6 +442,7 @@ document.addEventListener('DOMContentLoaded', function() {
             title: template.title,
             color: normalizeHexColor(template.color),
             tags: [...template.tags],
+            description: template.description || '',
             isNew: false
         }));
         deletedManageTemplateIds = new Set();
@@ -450,6 +459,7 @@ document.addEventListener('DOMContentLoaded', function() {
         current.title = manageTemplateTitleInput.value.trim();
         current.tags = [...manageWorkingTags];
         current.color = normalizeHexColor(selectedManageColor);
+        current.description = manageTemplateDescriptionInput ? manageTemplateDescriptionInput.value.trim() : '';
     }
 
     function renderManageTemplateList() {
@@ -516,6 +526,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         manageTemplateTitleInput.value = current.title;
         manageWorkingTags = [...current.tags];
+        if (manageTemplateDescriptionInput) {
+            manageTemplateDescriptionInput.value = current.description || '';
+            // If this is an existing template (not a new draft), make description fixed (read-only)
+            manageTemplateDescriptionInput.readOnly = !current.isNew;
+        }
         selectedManageColor = normalizeHexColor(current.color);
         renderManageTags();
         renderColorOptions(manageColorOptions, selectedManageColor, onManageColorSelect);
@@ -531,6 +546,7 @@ document.addEventListener('DOMContentLoaded', function() {
             id: eventItem.id,
             templateId: eventItem.templateId,
             selectedTag: eventItem.selectedTag || '',
+            description: eventItem.description || '',
             deleted: false,
             isNew: false
         }));
@@ -562,7 +578,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 title,
                 start: eventItem.start,
                 selectedTag,
-                color: eventItem.backgroundColor || DEFAULT_COLOR
+                color: eventItem.backgroundColor || DEFAULT_COLOR,
+                description: eventItem.description || ''
             };
         });
     }
@@ -601,6 +618,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="event-preview-info">
                     <p class="event-preview-title">${eventItem.title}</p>
                     <p class="event-preview-tag">Etiqueta: ${eventItem.selectedTag || 'Sin etiqueta'}</p>
+                    ${eventItem.description ? `<p class="event-preview-desc">${(eventItem.description || '').slice(0,200)}</p>` : ''}
                     <div class="event-preview-actions">
                         <button type="button" class="btn btn-primary js-go-to-event-day" data-date="${eventItem.start}">Ir</button>
                     </div>
@@ -671,6 +689,10 @@ document.addEventListener('DOMContentLoaded', function() {
             tag.className = 'day-event-tag';
             tag.textContent = eventItem.selectedTag ? `Etiqueta: ${eventItem.selectedTag}` : 'Sin etiqueta';
 
+            const desc = document.createElement('p');
+            desc.className = 'day-event-desc';
+            desc.textContent = eventItem.description ? eventItem.description : '';
+
             const actions = document.createElement('div');
             actions.className = 'day-event-actions';
 
@@ -689,6 +711,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             card.appendChild(title);
             card.appendChild(tag);
+            if (desc.textContent) card.appendChild(desc);
             card.appendChild(actions);
             dayPanelView.appendChild(card);
         }
@@ -701,6 +724,10 @@ document.addEventListener('DOMContentLoaded', function() {
         saveDayEventBtn.textContent = 'Guardar en calendario';
         eventDateInput.value = selectedDate || '';
         setTemplateOptions();
+        if (eventDescriptionInput) {
+            eventDescriptionInput.value = '';
+            eventDescriptionInput.readOnly = false;
+        }
         openModal(dayEventModal);
     }
 
@@ -716,6 +743,10 @@ document.addEventListener('DOMContentLoaded', function() {
         tagSelect.value = eventItem.selectedTag || '';
         if (tagSelect.value !== (eventItem.selectedTag || '')) {
             tagSelect.value = '';
+        }
+        if (eventDescriptionInput) {
+            eventDescriptionInput.value = eventItem.description || '';
+            eventDescriptionInput.readOnly = true;
         }
         openModal(dayEventModal);
     }
@@ -1583,7 +1614,7 @@ document.addEventListener('DOMContentLoaded', function() {
             await apiRequest('/api/plantillas', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, tags: workingTags, color: selectedTemplateColor })
+                body: JSON.stringify({ title, tags: workingTags, color: selectedTemplateColor, description: templateDescriptionInput ? templateDescriptionInput.value.trim() : '' })
             });
 
             closeModal(templateModal);
@@ -1610,12 +1641,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const requestBody = isEdit
                 ? {
                     templateId: Number(templateSelect.value),
-                    selectedTag: tagSelect.value
+                    selectedTag: tagSelect.value,
+                    description: eventDescriptionInput ? eventDescriptionInput.value.trim() : ''
                 }
                 : {
                     templateId: Number(templateSelect.value),
                     start: eventDateInput.value,
-                    selectedTag: tagSelect.value
+                    selectedTag: tagSelect.value,
+                    description: eventDescriptionInput ? eventDescriptionInput.value.trim() : ''
                 };
 
             await apiRequest(requestUrl, {
@@ -1674,7 +1707,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         body: JSON.stringify({
                             title: draft.title,
                             tags: draft.tags,
-                            color: draft.color
+                            color: draft.color,
+                            description: draft.description || ''
                         })
                     });
                     continue;
@@ -1688,8 +1722,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const tagsChanged = JSON.stringify(original.tags) !== JSON.stringify(draft.tags);
                 const titleChanged = original.title !== draft.title;
                 const colorChanged = normalizeHexColor(original.color) !== normalizeHexColor(draft.color);
+                const descriptionChanged = (original.description || '') !== (draft.description || '');
 
-                if (!tagsChanged && !titleChanged && !colorChanged) {
+                if (!tagsChanged && !titleChanged && !colorChanged && !descriptionChanged) {
                     continue;
                 }
 
@@ -1699,7 +1734,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({
                         title: draft.title,
                         tags: draft.tags,
-                        color: draft.color
+                        color: draft.color,
+                        description: draft.description || ''
                     })
                 });
             }
@@ -1772,6 +1808,7 @@ document.addEventListener('DOMContentLoaded', function() {
             title: `${currentTemplate.title || 'Evento'} (Copia)`,
             color: normalizeHexColor(currentTemplate.color),
             tags: [...currentTemplate.tags],
+            description: currentTemplate.description || '',
             isNew: true
         };
         manageTempTemplateId -= 1;

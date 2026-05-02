@@ -312,6 +312,23 @@ body {
     font-size: 14px;
 }
 
+.modal-body textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cfd2da;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 14px;
+    min-height: 72px;
+    resize: none;
+}
+
+textarea[readonly] {
+    background: #f8fafc;
+    color: var(--text-muted);
+    cursor: default;
+}
+
 .inline-field {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -333,6 +350,46 @@ body {
     border-radius: 999px;
     padding: 6px 10px;
     cursor: pointer;
+}
+
+/* Make tag chips responsive: allow shrinking and ellipsis for long labels */
+.tag-chip {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    min-width: 0;
+}
+
+/* When the container is tight (mobile), reduce padding/font-size */
+@media (max-width: 700px) {
+    .tag-list {
+        gap: 6px;
+    }
+
+    .tag-chip {
+        padding: 4px 8px;
+        font-size: 13px;
+    }
+}
+
+/* Allow tag-list children to shrink inside modals and constrained containers */
+.modal-body .tag-list,
+.manage-layout .tag-list,
+.visual-select-list {
+    min-width: 0;
+}
+
+.tag-list .tag-chip {
+    flex: 0 1 auto;
+    max-width: calc(100% - 40px);
+}
+
+/* Ensure inputs inside modal can shrink to avoid pushing layout */
+.modal-body input,
+.modal-body select,
+.modal-body textarea {
+    min-width: 0;
 }
 
 .modal-footer {
@@ -760,6 +817,20 @@ body {
     font-size: 13px;
 }
 
+.event-preview-desc {
+    margin: 6px 0 0;
+    color: #475569;
+    font-size: 13px;
+    white-space: pre-wrap;
+}
+
+.day-event-desc {
+    margin: 6px 0 0;
+    color: #475569;
+    font-size: 13px;
+    white-space: pre-wrap;
+}
+
 .event-preview-actions {
     margin-top: 10px;
     display: flex;
@@ -858,6 +929,10 @@ body {
     .modal-footer,
     .modal-footer.between {
         flex-wrap: wrap;
+    }
+
+    .modal-body textarea {
+        min-height: 56px;
     }
 
     .right-actions,
