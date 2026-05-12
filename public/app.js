@@ -7,6 +7,18 @@ document.addEventListener('DOMContentLoaded', function() {
         '#ec4899', '#f43f5e', '#64748b', '#334155'
     ];
 
+    // ── Utilidad: debounce ──
+    function debounce(fn, delay) {
+        let timer = null;
+        return function(...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    // ── Cache de templates para evitar fetches redundantes ──
+    let templatesCacheDirty = true;
+
     const calendarEl = document.getElementById('calendar');
     const authSection = document.getElementById('authSection');
     const appSection = document.getElementById('appSection');
@@ -333,36 +345,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function renderWorkingTags() {
-        tagList.innerHTML = '';
-
-        for (const tag of workingTags) {
+    // ── Función genérica para renderizar listas de tags ──
+    function renderTagList(container, tags, onRemove) {
+        container.innerHTML = '';
+        for (const tag of tags) {
             const chip = document.createElement('button');
             chip.type = 'button';
             chip.className = 'tag-chip';
-            chip.textContent = `${tag} x`;
-            chip.addEventListener('click', () => {
-                workingTags = workingTags.filter((t) => t !== tag);
-                renderWorkingTags();
-            });
-            tagList.appendChild(chip);
+            chip.textContent = `${tag} ×`;
+            chip.addEventListener('click', () => onRemove(tag));
+            container.appendChild(chip);
         }
     }
 
-    function renderManageTags() {
-        manageTagList.innerHTML = '';
+    function renderWorkingTags() {
+        renderTagList(tagList, workingTags, (tag) => {
+            workingTags = workingTags.filter((t) => t !== tag);
+            renderWorkingTags();
+        });
+    }
 
-        for (const tag of manageWorkingTags) {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'tag-chip';
-            chip.textContent = `${tag} x`;
-            chip.addEventListener('click', () => {
-                manageWorkingTags = manageWorkingTags.filter((t) => t !== tag);
-                renderManageTags();
-            });
-            manageTagList.appendChild(chip);
-        }
+    function renderManageTags() {
+        renderTagList(manageTagList, manageWorkingTags, (tag) => {
+            manageWorkingTags = manageWorkingTags.filter((t) => t !== tag);
+            renderManageTags();
+        });
     }
 
     function addTag() {
@@ -536,8 +543,16 @@ document.addEventListener('DOMContentLoaded', function() {
         renderColorOptions(manageColorOptions, selectedManageColor, onManageColorSelect);
     }
 
-    async function fetchTemplates() {
+    async function fetchTemplates(force) {
+        if (!force && !templatesCacheDirty) {
+            return;
+        }
         templates = await apiRequest('/api/plantillas');
+        templatesCacheDirty = false;
+    }
+
+    function invalidateTemplatesCache() {
+        templatesCacheDirty = true;
     }
 
     async function fetchDayEvents(dateStr) {
@@ -600,7 +615,10 @@ document.addEventListener('DOMContentLoaded', function() {
         eventsPreviewList.innerHTML = '';
 
         if (!filtered.length) {
-            eventsPreviewList.innerHTML = '<p class="empty-message">No hay eventos para ese filtro.</p>';
+            const empty = document.createElement('p');
+            empty.className = 'empty-message';
+            empty.textContent = 'No hay eventos para ese filtro.';
+            eventsPreviewList.appendChild(empty);
             return;
         }
 
@@ -610,21 +628,49 @@ document.addEventListener('DOMContentLoaded', function() {
             row.className = 'event-preview-item';
             row.style.borderLeftColor = eventItem.color || DEFAULT_COLOR;
 
-            row.innerHTML = `
-                <div class="event-preview-date">
-                    <span class="event-preview-month">${dateParts.month}</span>
-                    <strong class="event-preview-day">${dateParts.day}</strong>
-                </div>
-                <div class="event-preview-info">
-                    <p class="event-preview-title">${eventItem.title}</p>
-                    <p class="event-preview-tag">Etiqueta: ${eventItem.selectedTag || 'Sin etiqueta'}</p>
-                    ${eventItem.description ? `<p class="event-preview-desc">${(eventItem.description || '').slice(0,200)}</p>` : ''}
-                    <div class="event-preview-actions">
-                        <button type="button" class="btn btn-primary js-go-to-event-day" data-date="${eventItem.start}">Ir</button>
-                    </div>
-                </div>
-            `;
+            const dateCol = document.createElement('div');
+            dateCol.className = 'event-preview-date';
+            const monthSpan = document.createElement('span');
+            monthSpan.className = 'event-preview-month';
+            monthSpan.textContent = dateParts.month;
+            const dayStrong = document.createElement('strong');
+            dayStrong.className = 'event-preview-day';
+            dayStrong.textContent = dateParts.day;
+            dateCol.appendChild(monthSpan);
+            dateCol.appendChild(dayStrong);
 
+            const infoCol = document.createElement('div');
+            infoCol.className = 'event-preview-info';
+
+            const titleEl = document.createElement('p');
+            titleEl.className = 'event-preview-title';
+            titleEl.textContent = eventItem.title;
+            infoCol.appendChild(titleEl);
+
+            const tagEl = document.createElement('p');
+            tagEl.className = 'event-preview-tag';
+            tagEl.textContent = 'Etiqueta: ' + (eventItem.selectedTag || 'Sin etiqueta');
+            infoCol.appendChild(tagEl);
+
+            if (eventItem.description) {
+                const descEl = document.createElement('p');
+                descEl.className = 'event-preview-desc';
+                descEl.textContent = (eventItem.description || '').slice(0, 200);
+                infoCol.appendChild(descEl);
+            }
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'event-preview-actions';
+            const goBtn = document.createElement('button');
+            goBtn.type = 'button';
+            goBtn.className = 'btn btn-primary js-go-to-event-day';
+            goBtn.dataset.date = eventItem.start;
+            goBtn.textContent = 'Ir';
+            actionsDiv.appendChild(goBtn);
+            infoCol.appendChild(actionsDiv);
+
+            row.appendChild(dateCol);
+            row.appendChild(infoCol);
             eventsPreviewList.appendChild(row);
         }
     }
@@ -1133,12 +1179,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!dateStr) {
                         return;
                     }
-                    // Simulamos click con el día donde está ubicado este evento.
-                    await selectDateAndRender(
-                        dateStr,
-                        info.jsEvent,
-                        shouldOpenModalFromInteraction(dateStr, info.jsEvent)
-                    );
+                    const isDoubleClick = shouldOpenModalFromInteraction(dateStr, info.jsEvent);
+
+                    // Siempre seleccionar el dia y mostrar el panel lateral
+                    await selectDateAndRender(dateStr, info.jsEvent, false);
+
+                    // Si fue doble clic, abrir el modal de edicion del evento clickeado
+                    if (isDoubleClick) {
+                        const eventId = Number(info.event.id);
+                        const eventItem = dayEvents.find((e) => e.id === eventId);
+                        if (eventItem) {
+                            openEditDayEventModal(eventItem);
+                        }
+                    }
                 } catch (error) {
                     showToast(error.message, true);
                 }
@@ -1403,7 +1456,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const info = document.createElement('span');
             info.className = 'admin-user-info';
-            info.innerHTML = `<strong>${u.username}</strong> <small>(ID: ${u.id} | Creado: ${new Date(u.created_at).toLocaleDateString()})</small>`;
+            const nameStrong = document.createElement('strong');
+            nameStrong.textContent = u.username;
+            const metaSmall = document.createElement('small');
+            metaSmall.textContent = ` (ID: ${u.id} | Creado: ${new Date(u.created_at).toLocaleDateString()})`;
+            info.appendChild(nameStrong);
+            info.appendChild(metaSmall);
             li.appendChild(info);
 
             const actions = document.createElement('div');
@@ -1525,23 +1583,18 @@ document.addEventListener('DOMContentLoaded', function() {
         closeModal(manageModal);
     });
 
-    closeDayModalBtn.addEventListener('click', function() {
+    // ── Función extraída para cerrar el modal de eventos del día ──
+    function closeDayEventModalAndReset() {
         closeModal(dayEventModal);
         resetDayForm();
         dayEventMode = 'create';
         editingEventId = null;
         dayEventTitle.textContent = 'Agregar evento al dia';
         saveDayEventBtn.textContent = 'Guardar en calendario';
-    });
+    }
 
-    cancelDayEventBtn.addEventListener('click', function() {
-        closeModal(dayEventModal);
-        resetDayForm();
-        dayEventMode = 'create';
-        editingEventId = null;
-        dayEventTitle.textContent = 'Agregar evento al dia';
-        saveDayEventBtn.textContent = 'Guardar en calendario';
-    });
+    closeDayModalBtn.addEventListener('click', closeDayEventModalAndReset);
+    cancelDayEventBtn.addEventListener('click', closeDayEventModalAndReset);
 
     dialogConfirmBtn?.addEventListener('click', function() {
         resolveDialog(true);
@@ -1584,10 +1637,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    manageTemplateTitleInput.addEventListener('input', function() {
+    // Debounce para evitar re-renders en cada tecleo
+    manageTemplateTitleInput.addEventListener('input', debounce(function() {
         persistCurrentManageDraft();
         renderManageTemplateList();
-    });
+    }, 150));
 
     templateSelect.addEventListener('change', () => {
         updateTagOptions();
@@ -1619,6 +1673,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             closeModal(templateModal);
             resetTemplateForm();
+            invalidateTemplatesCache();
             await fetchTemplates();
             showToast('Evento base guardado.');
         } catch (error) {
@@ -1657,12 +1712,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify(requestBody)
             });
 
-            closeModal(dayEventModal);
-            resetDayForm();
-            dayEventMode = 'create';
-            editingEventId = null;
-            dayEventTitle.textContent = 'Agregar evento al dia';
-            saveDayEventBtn.textContent = 'Guardar en calendario';
+            closeDayEventModalAndReset();
             if (selectedDate) {
                 await fetchDayEvents(selectedDate);
                 renderDayPanelView();
@@ -1740,6 +1790,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
 
+            invalidateTemplatesCache();
             await fetchTemplates();
             await fetchDetailedEvents();
             if (selectedDate) {

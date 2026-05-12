@@ -9,11 +9,51 @@ let db;
 
 const DEFAULT_COLOR = '#3b82f6';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 dias
+const SESSION_CLEANUP_INTERVAL_MS = 1000 * 60 * 60; // 1 hora
+
+// ── Rate limiter en memoria para login/registro ──
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutos
+const RATE_LIMIT_MAX_HITS = 10;
+
+function checkRateLimit(ip) {
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+    if (!entry || now - entry.start > RATE_LIMIT_WINDOW_MS) {
+        rateLimitMap.set(ip, { start: now, count: 1 });
+        return true;
+    }
+    entry.count += 1;
+    return entry.count <= RATE_LIMIT_MAX_HITS;
+}
+
+// Limpiar entradas expiradas del rate limiter cada 5 minutos
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitMap) {
+        if (now - entry.start > RATE_LIMIT_WINDOW_MS) {
+            rateLimitMap.delete(ip);
+        }
+    }
+}, 5 * 60 * 1000).unref();
+
+// ── Helper para transacciones ──
+async function withTransaction(fn) {
+    await db.exec('BEGIN');
+    try {
+        const result = await fn();
+        await db.exec('COMMIT');
+        return result;
+    } catch (error) {
+        await db.exec('ROLLBACK');
+        throw error;
+    }
+}
 
 async function iniciarDB() {
     const filename = process.env.DB_PATH || './database.sqlite';
     const dbDir = path.dirname(filename);
-    
+
     if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
     }
@@ -37,7 +77,7 @@ async function iniciarDB() {
     // Migration para base de datos existente
     try {
         await db.exec('ALTER TABLE users ADD COLUMN is_superuser INTEGER DEFAULT 0');
-    } catch(e) {
+    } catch (e) {
         // Ignorar si la columna ya existe
     }
 
@@ -108,6 +148,32 @@ async function iniciarDB() {
         await db.exec('INSERT INTO eventos_legacy (title, start) SELECT title, start FROM eventos');
         await db.exec('DROP TABLE eventos');
     }
+
+    // ── Optimizaciones de rendimiento ──
+    await db.exec('PRAGMA journal_mode=WAL');
+    await db.exec('PRAGMA foreign_keys=ON');
+
+    // Indices para acelerar consultas frecuentes
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions(token)');
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id)');
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_expires ON user_sessions(expires_at)');
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_events_user ON calendar_events(user_id)');
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_events_start ON calendar_events(start)');
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_events_template ON calendar_events(template_id)');
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_templates_user ON event_templates(user_id)');
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_template_tags_template ON template_tags(template_id)');
+
+    // Limpieza inicial de sesiones expiradas
+    await db.run('DELETE FROM user_sessions WHERE expires_at <= ?', [new Date().toISOString()]);
+
+    // Limpieza periodica de sesiones expiradas
+    setInterval(async () => {
+        try {
+            await db.run('DELETE FROM user_sessions WHERE expires_at <= ?', [new Date().toISOString()]);
+        } catch (err) {
+            console.error('Error limpiando sesiones expiradas:', err.message);
+        }
+    }, SESSION_CLEANUP_INTERVAL_MS).unref();
 
     console.log('Base de datos SQLite conectada.');
 }
@@ -298,27 +364,27 @@ fastify.put('/api/admin/users/:id', async (request, reply) => {
     if (!admin.is_superuser) {
         reply.code(403); return { success: false, message: 'Acceso denegado.' };
     }
-    
+
     const targetUserId = parseInt(request.params.id, 10);
     const newUsernameStr = String(request.body?.username || '').trim();
     const newPasswordStr = String(request.body?.password || '');
-    
+
     if (!targetUserId || targetUserId <= 0) {
         reply.code(400); return { success: false, message: 'ID invalido.' };
     }
-    
+
     try {
         const username = sanitizeUsername(newUsernameStr);
         let password = null;
         if (newPasswordStr) {
             password = sanitizePassword(newPasswordStr);
         }
-        
+
         const existing = await db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, targetUserId]);
         if (existing) {
-             reply.code(409); return { success: false, message: 'Ese usuario ya existe.' };
+            reply.code(409); return { success: false, message: 'Ese usuario ya existe.' };
         }
-        
+
         if (password) {
             const salt = crypto.randomBytes(16).toString('hex');
             const hash = hashPassword(password, salt);
@@ -326,9 +392,9 @@ fastify.put('/api/admin/users/:id', async (request, reply) => {
         } else {
             await db.run('UPDATE users SET username = ? WHERE id = ?', [username, targetUserId]);
         }
-        
+
         return { success: true, message: 'Usuario actualizado correctamente.' };
-    } catch(err) {
+    } catch (err) {
         reply.code(400);
         return { success: false, message: err.message };
     }
@@ -344,33 +410,37 @@ fastify.delete('/api/admin/users/:id', async (request, reply) => {
     if (!targetUserId || targetUserId <= 0) {
         reply.code(400); return { success: false, message: 'ID invalido.' };
     }
-    
+
     if (admin.id === targetUserId) {
         reply.code(400); return { success: false, message: 'No puedes eliminarte a ti mismo.' };
     }
-    
-    await db.exec('BEGIN');
+
     try {
-        await db.run('DELETE FROM user_sessions WHERE user_id = ?', [targetUserId]);
-        await db.run('DELETE FROM calendar_events WHERE user_id = ?', [targetUserId]);
-        
-        const templates = await db.all('SELECT id FROM event_templates WHERE user_id = ?', [targetUserId]);
-        for(const t of templates) {
-            await db.run('DELETE FROM template_tags WHERE template_id = ?', [t.id]);
-        }
-        await db.run('DELETE FROM event_templates WHERE user_id = ?', [targetUserId]);
-        
-        await db.run('DELETE FROM users WHERE id = ?', [targetUserId]);
-        
-        await db.exec('COMMIT');
+        await withTransaction(async () => {
+            await db.run('DELETE FROM user_sessions WHERE user_id = ?', [targetUserId]);
+            await db.run('DELETE FROM calendar_events WHERE user_id = ?', [targetUserId]);
+
+            const templates = await db.all('SELECT id FROM event_templates WHERE user_id = ?', [targetUserId]);
+            for (const t of templates) {
+                await db.run('DELETE FROM template_tags WHERE template_id = ?', [t.id]);
+            }
+            await db.run('DELETE FROM event_templates WHERE user_id = ?', [targetUserId]);
+
+            await db.run('DELETE FROM users WHERE id = ?', [targetUserId]);
+        });
         return { success: true, message: 'Usuario eliminado.' };
     } catch (err) {
-        await db.exec('ROLLBACK');
         reply.code(500); return { success: false, message: err.message };
     }
 });
 
 fastify.post('/api/auth/register', async (request, reply) => {
+    const ip = request.ip;
+    if (!checkRateLimit(ip)) {
+        reply.code(429);
+        return { success: false, message: 'Demasiados intentos. Espera unos minutos.' };
+    }
+
     let username;
     let password;
     try {
@@ -400,6 +470,12 @@ fastify.post('/api/auth/register', async (request, reply) => {
 });
 
 fastify.post('/api/auth/login', async (request, reply) => {
+    const ip = request.ip;
+    if (!checkRateLimit(ip)) {
+        reply.code(429);
+        return { success: false, message: 'Demasiados intentos. Espera unos minutos.' };
+    }
+
     let username;
     let password;
     try {
@@ -410,7 +486,7 @@ fastify.post('/api/auth/login', async (request, reply) => {
         return { success: false, message: error.message };
     }
 
-const user = await db.get('SELECT id, username, password_hash, password_salt, is_superuser FROM users WHERE username = ?', [username]);
+    const user = await db.get('SELECT id, username, password_hash, password_salt, is_superuser FROM users WHERE username = ?', [username]);
     if (!user) {
         reply.code(401);
         return { success: false, message: 'Usuario o contrasena incorrectos.' };
@@ -463,7 +539,7 @@ fastify.get('/api/eventos', async (request, reply) => {
     );
     return eventos.map((evento) => ({
         id: evento.id,
-        title: evento.selected_tag ? `${evento.title} [${evento.selected_tag}]` : evento.title,
+        title: evento.title,
         start: evento.start,
         allDay: true,
         templateId: evento.template_id,
@@ -596,24 +672,20 @@ fastify.post('/api/plantillas', async (request, reply) => {
         return { success: false, message: 'El titulo debe tener maximo 120 caracteres.' };
     }
 
-    await db.exec('BEGIN');
-    try {
+    const templateId = await withTransaction(async () => {
         const insertTemplate = await db.run(
             'INSERT INTO event_templates (user_id, title, color, description) VALUES (?, ?, ?, ?)',
             [user.id, title, color, String(request.body?.description || '')]
         );
-        const templateId = insertTemplate.lastID;
+        const newId = insertTemplate.lastID;
 
         for (const tag of tags) {
-            await db.run('INSERT INTO template_tags (template_id, name) VALUES (?, ?)', [templateId, tag]);
+            await db.run('INSERT INTO template_tags (template_id, name) VALUES (?, ?)', [newId, tag]);
         }
 
-        await db.exec('COMMIT');
-        return { success: true, message: 'Plantilla guardada', templateId };
-    } catch (error) {
-        await db.exec('ROLLBACK');
-        throw error;
-    }
+        return newId;
+    });
+    return { success: true, message: 'Plantilla guardada', templateId };
 });
 
 fastify.put('/api/plantillas/:id', async (request, reply) => {
@@ -662,8 +734,7 @@ fastify.put('/api/plantillas/:id', async (request, reply) => {
         return { success: false, message: 'La plantilla no existe.' };
     }
 
-    await db.exec('BEGIN');
-    try {
+    await withTransaction(async () => {
         await db.run('UPDATE event_templates SET title = ?, color = ?, description = ? WHERE id = ? AND user_id = ?', [
             title,
             color,
@@ -683,13 +754,8 @@ fastify.put('/api/plantillas/:id', async (request, reply) => {
         for (const tag of tags) {
             await db.run('INSERT INTO template_tags (template_id, name) VALUES (?, ?)', [templateId, tag]);
         }
-
-        await db.exec('COMMIT');
-        return { success: true, message: 'Plantilla actualizada' };
-    } catch (error) {
-        await db.exec('ROLLBACK');
-        throw error;
-    }
+    });
+    return { success: true, message: 'Plantilla actualizada' };
 });
 
 fastify.delete('/api/plantillas/:id', async (request, reply) => {
