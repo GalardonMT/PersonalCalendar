@@ -3,12 +3,16 @@ FROM node:20
 # Create app directory
 WORKDIR /app
 
+# Install build tools needed to compile sqlite3 from source
+RUN apt-get update && \
+    apt-get install -y python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy dependency definitions
 COPY package*.json ./
 
-# Install only production dependencies and force sqlite3 to build from source
-RUN npm install --production
-RUN npm install sqlite3 --build-from-source
+# Install dependencies and force sqlite3 to build from source
+RUN npm install --production --build-from-source
 
 # Bundle app source
 COPY . .
@@ -24,4 +28,4 @@ VOLUME ["/data"]
 EXPOSE 3000
 
 # Start the application
-CMD [ "npm", "start" ]
+CMD [ "npm", "start" ]
