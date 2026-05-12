@@ -785,6 +785,23 @@ document.addEventListener('DOMContentLoaded', function() {
         eventDateInput.value = eventItem.start;
         setTemplateOptions();
         templateSelect.value = String(eventItem.templateId);
+
+        // Actualizar la seleccion visual para que coincida con la plantilla del evento
+        if (templateVisualSelect) {
+            Array.from(templateVisualSelect.children).forEach((child) => {
+                child.classList.remove('selected');
+            });
+            const targetId = String(eventItem.templateId);
+            for (const child of templateVisualSelect.children) {
+                const dot = child.querySelector('.visual-select-dot');
+                const matchingTemplate = templates.find((t) => String(t.id) === targetId);
+                if (matchingTemplate && child.querySelector('span') && child.querySelector('span').textContent === matchingTemplate.title) {
+                    child.classList.add('selected');
+                    break;
+                }
+            }
+        }
+
         updateTagOptions();
         tagSelect.value = eventItem.selectedTag || '';
         if (tagSelect.value !== (eventItem.selectedTag || '')) {
