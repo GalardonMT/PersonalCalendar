@@ -63,7 +63,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const openTemplateModalBtn = document.getElementById('openTemplateModal');
     const openManageModalBtn = document.getElementById('openManageModal');
-    const openViewEventsModalBtn = document.getElementById('openViewEventsModal');
     const closeTemplateModalBtn = document.getElementById('closeTemplateModal');
     const cancelTemplateBtn = document.getElementById('cancelTemplate');
     const closeManageModalBtn = document.getElementById('closeManageModal');
@@ -1156,7 +1155,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (calendar) {
             return;
         }
-
         calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'es',
@@ -1166,16 +1164,29 @@ document.addEventListener('DOMContentLoaded', function() {
             eventStartEditable: true,
             eventDurationEditable: false,
             buttonText: {
-                today: 'Hoy',
-                month: 'Mes',
-                week: 'Semana',
-                day: 'Dia'
+                today: 'Hoy'
+            },
+            customButtons: {
+                viewEvents: {
+                    text: 'Ver Eventos',
+                    click: async function() {
+                        try {
+                            await fetchTemplates();
+                            await fetchDetailedEvents();
+                            fillEventsFilterOptions();
+                            renderEventsPreview();
+                            openModal(viewEventsModal);
+                        } catch (error) {
+                            showToast(error.message, true);
+                        }
+                    }
+                }
             },
             dayHeaderFormat: { weekday: 'short' },
             headerToolbar: {
                 left: 'prev,next today', // Botones lado izq: Atras, Adelante, Volver a Hoy
                 center: 'title',         // Titulo del mes (centro)
-                right: 'dayGridMonth,timeGridWeek,timeGridDay' // Alternativas de vista (derecha)
+                right: 'viewEvents'      // Alternativas de vista (derecha)
             },
             // Callback al dar click a una celda (dia) vacía o sin que el evento pida propagacion.
             dateClick: async function(info) {
@@ -1419,17 +1430,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    openViewEventsModalBtn?.addEventListener('click', async function() {
-        try {
-            await fetchTemplates();
-            await fetchDetailedEvents();
-            fillEventsFilterOptions();
-            renderEventsPreview();
-            openModal(viewEventsModal);
-        } catch (error) {
-            showToast(error.message, true);
-        }
-    });
+    // La logica de abrir Ver Eventos ahora esta en el customButton del calendario
 
     closeViewEventsModalBtn?.addEventListener('click', function() {
         closeModal(viewEventsModal);
