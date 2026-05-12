@@ -824,13 +824,18 @@ fastify.put('/api/eventos/:id', async (request, reply) => {
         }
     }
 
+    let description = null;
+    if (typeof request.body?.description === 'string') {
+        description = request.body.description.trim();
+    }
+
     await db.run(
         `
         UPDATE calendar_events
         SET template_id = ?, title = ?, selected_tag = ?, description = COALESCE(?, description), color = ?, start = COALESCE(?, start)
         WHERE id = ? AND user_id = ?
         `,
-        [templateId, template.title, selectedTag, String(request.body?.description || null), template.color || DEFAULT_COLOR, start || null, eventId, user.id]
+        [templateId, template.title, selectedTag, description !== null ? description : null, template.color || DEFAULT_COLOR, start || null, eventId, user.id]
     );
 
     return { success: true, message: 'Evento actualizado' };

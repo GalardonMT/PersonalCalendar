@@ -528,8 +528,8 @@ document.addEventListener('DOMContentLoaded', function() {
         manageWorkingTags = [...current.tags];
         if (manageTemplateDescriptionInput) {
             manageTemplateDescriptionInput.value = current.description || '';
-            // If this is an existing template (not a new draft), make description fixed (read-only)
-            manageTemplateDescriptionInput.readOnly = !current.isNew;
+            // Allow editing of existing templates
+            manageTemplateDescriptionInput.readOnly = false;
         }
         selectedManageColor = normalizeHexColor(current.color);
         renderManageTags();
@@ -746,7 +746,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (eventDescriptionInput) {
             eventDescriptionInput.value = eventItem.description || '';
-            eventDescriptionInput.readOnly = true;
+            eventDescriptionInput.readOnly = false;
         }
         openModal(dayEventModal);
     }
