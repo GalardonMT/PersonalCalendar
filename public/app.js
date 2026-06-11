@@ -72,6 +72,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeViewEventsFooterBtn = document.getElementById('closeViewEventsFooter');
     const eventsFilterSelect = document.getElementById('eventsFilterSelect');
     const eventsPreviewList = document.getElementById('eventsPreviewList');
+    const filterUpcomingBtn = document.getElementById('filterUpcomingBtn');
+    const filterAllBtn = document.getElementById('filterAllBtn');
 
     const closeDayModalBtn = document.getElementById('closeDayModal');
     const cancelDayEventBtn = document.getElementById('cancelDayEvent');
@@ -126,6 +128,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let calendar = null;
     let detailedEvents = [];
     let dialogResolver = null;
+    let showOnlyUpcoming = true;
     const DOUBLE_TAP_DELAY_MS = 350;
     let lastTapDateStr = '';
     let lastTapTimestamp = 0;
@@ -606,10 +609,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderEventsPreview() {
+        if (filterUpcomingBtn && filterAllBtn) {
+            if (showOnlyUpcoming) {
+                filterUpcomingBtn.classList.add('btn-primary');
+                filterAllBtn.classList.remove('btn-primary');
+            } else {
+                filterAllBtn.classList.add('btn-primary');
+                filterUpcomingBtn.classList.remove('btn-primary');
+            }
+        }
+
         const selectedTemplateId = Number(eventsFilterSelect.value);
-        const filtered = Number.isInteger(selectedTemplateId) && selectedTemplateId > 0
+        let filtered = Number.isInteger(selectedTemplateId) && selectedTemplateId > 0
             ? detailedEvents.filter((eventItem) => eventItem.templateId === selectedTemplateId)
             : detailedEvents;
+
+        if (showOnlyUpcoming) {
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            filtered = filtered.filter((eventItem) => eventItem.start >= todayStr);
+        }
 
         eventsPreviewList.innerHTML = '';
 
@@ -1431,6 +1450,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // La logica de abrir Ver Eventos ahora esta en el customButton del calendario
+
+    filterUpcomingBtn?.addEventListener('click', function() {
+        showOnlyUpcoming = true;
+        renderEventsPreview();
+    });
+
+    filterAllBtn?.addEventListener('click', function() {
+        showOnlyUpcoming = false;
+        renderEventsPreview();
+    });
 
     closeViewEventsModalBtn?.addEventListener('click', function() {
         closeModal(viewEventsModal);

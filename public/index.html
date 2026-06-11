@@ -159,7 +159,11 @@
                 <select id="eventsFilterSelect">
                     <option value="">Todos los eventos</option>
                 </select>
-
+                <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                    <button id="filterUpcomingBtn" class="btn btn-primary" type="button" style="flex: 1;">De hoy en adelante</button>
+                    <button id="filterAllBtn" class="btn" type="button" style="flex: 1;">Todos los eventos</button>
+                </div>
+                
                 <div id="eventsPreviewList" class="events-preview-list">
                     <p class="empty-message">No hay eventos para mostrar.</p>
                 </div>
