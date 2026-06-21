@@ -133,7 +133,14 @@ body {
     padding: 14px 20px;
     backdrop-filter: blur(12px);
     box-shadow: var(--shadow-soft);
+    position: relative;
+    z-index: 1000;
 }
+
+.menu-toggle-btn {
+    display: none;
+}
+
 
 .topbar-actions {
     display: flex;
@@ -1011,24 +1018,94 @@ textarea[readonly] {
 
 @media (max-width: 700px) {
     .topbar {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+    }
+
+    .menu-toggle-btn {
+        display: flex;
         flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+        justify-content: space-between;
+        width: 24px;
+        height: 18px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 6px;
+        box-sizing: content-box;
+        border-radius: 8px;
+        margin-right: 8px;
+        transition: background-color 0.2s ease;
+    }
+
+    .menu-toggle-btn:hover, .menu-toggle-btn:active {
+        background-color: rgba(13, 148, 136, 0.12);
+    }
+
+    .menu-toggle-btn .hamburger-bar {
+        width: 100%;
+        height: 2.5px;
+        background-color: var(--brand-strong);
+        border-radius: 3px;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+    }
+
+    .menu-toggle-btn.active .hamburger-bar:nth-child(1) {
+        transform: translateY(7.75px) rotate(45deg);
+    }
+
+    .menu-toggle-btn.active .hamburger-bar:nth-child(2) {
+        opacity: 0;
+    }
+
+    .menu-toggle-btn.active .hamburger-bar:nth-child(3) {
+        transform: translateY(-7.75px) rotate(-45deg);
     }
 
     .topbar-actions {
-        width: 100%;
-        flex-wrap: wrap;
+        display: none;
+        position: absolute;
+        top: calc(100% + 12px);
+        left: 0;
+        right: 0;
+        z-index: 1001;
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        box-shadow: var(--shadow-medium);
+        backdrop-filter: blur(16px);
+        flex-direction: column;
+        gap: 8px;
+        animation: menuFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .topbar-actions.show {
+        display: flex;
+    }
+
+    @keyframes menuFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     .topbar-actions .btn {
-        flex: 1 1 calc(50% - 6px);
-        min-width: 140px;
+        width: 100%;
+        justify-content: flex-start;
     }
 
     .current-user {
-        width: 100%;
+        width: fit-content;
         margin-bottom: 4px;
+        text-align: left;
     }
 
     .modal {

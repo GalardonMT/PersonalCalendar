@@ -57,6 +57,9 @@ document.addEventListener('components:ready', function() {
     const weeklyMinuteSel = document.getElementById('weeklyMinute');
     const weeklyDaySel = document.getElementById('weeklyDay');
 
+    const menuToggleBtn = document.getElementById('menuToggleBtn');
+    const topbarActions = document.getElementById('topbarActions');
+
     const loginForm = document.getElementById('loginForm');
     const loginUsernameInput = document.getElementById('loginUsername');
     const loginPasswordInput = document.getElementById('loginPassword');
@@ -305,6 +308,20 @@ document.addEventListener('components:ready', function() {
     }
 
     function openModal(modal) {
+        // Si estamos abriendo un modal normal, cerramos los demás (excepto el diálogo de confirmación que va por encima)
+        if (modal && modal.id !== 'dialogModal') {
+            document.querySelectorAll('.modal').forEach(m => {
+                if (m.id !== 'dialogModal') {
+                    m.classList.add('hidden');
+                }
+            });
+            
+            // También cerramos el menú hamburguesa si estuviera abierto
+            if (menuToggleBtn && topbarActions) {
+                menuToggleBtn.classList.remove('active');
+                topbarActions.classList.remove('show');
+            }
+        }
         modal.classList.remove('hidden');
     }
 
@@ -2014,6 +2031,9 @@ document.addEventListener('components:ready', function() {
             showToast(error.message, true);
         }
 
+        // Cerrar cualquier modal que haya quedado abierta
+        document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+
         currentUser = null;
         selectedDate = null;
         dayEvents = [];
@@ -2021,6 +2041,30 @@ document.addEventListener('components:ready', function() {
         renderDayPanelView();
         showAuthView();
     });
+
+    // Toggle menú hamburguesa en responsive
+    if (menuToggleBtn && topbarActions) {
+        menuToggleBtn.addEventListener('click', () => {
+            menuToggleBtn.classList.toggle('active');
+            topbarActions.classList.toggle('show');
+        });
+
+        // Cerrar menú al hacer clic en cualquier opción o botón del menú
+        topbarActions.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                menuToggleBtn.classList.remove('active');
+                topbarActions.classList.remove('show');
+            });
+        });
+
+        // Cerrar menú al hacer clic fuera
+        document.addEventListener('click', (event) => {
+            if (!menuToggleBtn.contains(event.target) && !topbarActions.contains(event.target)) {
+                menuToggleBtn.classList.remove('active');
+                topbarActions.classList.remove('show');
+            }
+        });
+    }
 
     // Rellena los <select> de hora y minuto para los horarios de WhatsApp
     function populateTimeSelects() {

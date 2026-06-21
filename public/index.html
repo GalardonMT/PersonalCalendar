@@ -29,8 +29,13 @@
     <!-- ── Shell principal de la aplicación (siempre visible en DOM) ── -->
     <div id="appSection" class="page-shell hidden">
         <header class="topbar">
+            <button id="menuToggleBtn" class="menu-toggle-btn" type="button" aria-label="Abrir menú">
+                <span class="hamburger-bar"></span>
+                <span class="hamburger-bar"></span>
+                <span class="hamburger-bar"></span>
+            </button>
             <h1>Mi Calendario</h1>
-            <div class="topbar-actions">
+            <div id="topbarActions" class="topbar-actions">
                 <span id="currentUserLabel" class="current-user"></span>
                 <button id="openAdminModal" class="btn hidden" type="button">
                     <img src="/icons/admin.png" class="btn-icon" alt="">Admin
