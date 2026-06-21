@@ -1,0 +1,28 @@
+<div id="dayEventModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dayEventTitle">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h2 id="dayEventTitle">Agregar evento al dia</h2>
+            <button id="closeDayModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+        </div>
+
+        <form id="dayEventForm" class="modal-body" autocomplete="off">
+            <label for="eventDate">Fecha</label>
+            <input id="eventDate" type="date" required readonly autocomplete="off" />
+
+            <label>Evento base a asignar</label>
+            <div id="templateVisualSelect" class="visual-select-list"></div>
+            <input type="hidden" id="templateSelect" required>
+
+            <label for="tagSelect">Etiqueta (opcional)</label>
+            <select id="tagSelect"></select>
+
+            <label for="eventDescription">Descripcion del evento (opcional)</label>
+            <textarea id="eventDescription" maxlength="1000" placeholder="Descripcion para este evento" rows="3"></textarea>
+
+            <div class="modal-footer">
+                <button class="btn" type="button" id="cancelDayEvent">Cancelar</button>
+                <button class="btn btn-primary" type="submit" id="saveDayEventBtn">Guardar en calendario</button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,102 @@
+<div id="whatsappModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="whatsappModalTitle">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h2 id="whatsappModalTitle">Configuración de Notificaciones</h2>
+            <button id="closeWhatsappModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+        </div>
+        <form id="whatsappForm" class="modal-body" autocomplete="off">
+
+            <p class="wa-desc">Recordatorios automáticos enviados a tu WhatsApp vía CallMeBot.
+                Las notificaciones son exclusivas de tu cuenta.</p>
+
+            <!-- Toggle activar -->
+            <label class="wa-toggle-label">
+                <input type="checkbox" id="whatsappEnabled" class="wa-toggle-checkbox">
+                <span>Activar notificaciones</span>
+            </label>
+
+            <!-- Teléfono -->
+            <label for="whatsappPhone">Teléfono (con código de país)</label>
+            <input id="whatsappPhone" type="tel" placeholder="+56912345678">
+
+            <!-- API Key + botón de ayuda -->
+            <label for="whatsappApikey">API Key de CallMeBot</label>
+            <div class="wa-apikey-row">
+                <input id="whatsappApikey" type="text" placeholder="123456" style="flex:1;">
+                <button type="button" class="btn wa-help-btn" id="toggleApiInstructions">
+                    ¿Cómo obtenerla?
+                </button>
+            </div>
+
+            <!-- Instrucciones desplegables -->
+            <div id="apiKeyInstructions" class="wa-instructions hidden">
+                <p class="wa-instructions-title">📲 Pasos para obtener tu API Key</p>
+                <ol class="wa-steps">
+                    <li>
+                        Agrega <strong>+34 684 73 40 44</strong> a tus contactos de WhatsApp.
+                        <div class="wa-copy-row">
+                            <code class="wa-code">+34 684 73 40 44</code>
+                            <button type="button" class="btn wa-copy-btn" id="copyCallmebotPhone"
+                                data-copy="+34 684 73 40 44">
+                                <img src="icons/copy.png" alt="Copiar">
+                            </button>
+                        </div>
+                    </li>
+                    <li>Envíale exactamente este mensaje:
+                        <div class="wa-copy-row">
+                            <code class="wa-code">I allow callmebot to send me messages</code>
+                            <button type="button" class="btn wa-copy-btn" id="copyCallmebotMsg"
+                                data-copy="I allow callmebot to send me messages">
+                                <img src="icons/copy.png" alt="Copiar">
+                            </button>
+                        </div>
+                    </li>
+                    <li>En menos de 2 minutos recibirás tu API Key por WhatsApp.</li>
+                    <li>Pega el número de API Key en el campo de arriba y guarda.</li>
+                </ol>
+            </div>
+
+            <!-- Horario de notificaciones -->
+            <div class="wa-schedule-section">
+                <div class="wa-schedule-title">
+                    🕐 Horario de notificaciones
+                </div>
+
+                <div id="schedulePanel" class="wa-schedule-panel">
+                    <div class="wa-schedule-row">
+                        <span class="wa-schedule-label">🗓️ Reporte semanal</span>
+                        <div class="wa-time-row">
+                            <select id="weeklyDay" class="wa-time-select">
+                                <option value="0">Domingo</option>
+                                <option value="1">Lunes</option>
+                                <option value="2">Martes</option>
+                                <option value="3">Miércoles</option>
+                                <option value="4">Jueves</option>
+                                <option value="5">Viernes</option>
+                                <option value="6">Sábado</option>
+                            </select>
+                            <select id="weeklyHour" class="wa-time-select"></select>
+                            <span class="wa-time-colon">:</span>
+                            <select id="weeklyMinute" class="wa-time-select"></select>
+                            <span class="wa-tz-label">Chile</span>
+                        </div>
+                    </div>
+                    <div class="wa-schedule-row">
+                        <span class="wa-schedule-label">📅 Reporte diario</span>
+                        <div class="wa-time-row">
+                            <select id="dailyHour" class="wa-time-select"></select>
+                            <span class="wa-time-colon">:</span>
+                            <select id="dailyMinute" class="wa-time-select"></select>
+                            <span class="wa-tz-label">Chile</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn" type="button" id="cancelWhatsappBtn">Cerrar</button>
+                <button class="btn btn-primary" type="submit">Guardar Configuración</button>
+            </div>
+        </form>
+    </div>
+</div>

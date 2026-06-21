@@ -4,6 +4,7 @@ const fs = require('fs');
 const sqlite3 = require('sqlite3');
 const crypto = require('crypto');
 const { open } = require('sqlite');
+const cron = require('node-cron');
 
 let db;
 
@@ -70,7 +71,10 @@ async function iniciarDB() {
             password_hash TEXT NOT NULL,
             password_salt TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            is_superuser INTEGER DEFAULT 0
+            is_superuser INTEGER DEFAULT 0,
+            whatsapp_enabled INTEGER DEFAULT 0,
+            whatsapp_phone TEXT,
+            whatsapp_apikey TEXT
         )
     `);
 
@@ -80,6 +84,14 @@ async function iniciarDB() {
     } catch (e) {
         // Ignorar si la columna ya existe
     }
+    try { await db.exec('ALTER TABLE users ADD COLUMN whatsapp_enabled INTEGER DEFAULT 0'); } catch (e) { }
+    try { await db.exec('ALTER TABLE users ADD COLUMN whatsapp_phone TEXT'); } catch (e) { }
+    try { await db.exec('ALTER TABLE users ADD COLUMN whatsapp_apikey TEXT'); } catch (e) { }
+    try { await db.exec('ALTER TABLE users ADD COLUMN daily_hour INTEGER DEFAULT 9'); } catch (e) { }
+    try { await db.exec('ALTER TABLE users ADD COLUMN daily_minute INTEGER DEFAULT 0'); } catch (e) { }
+    try { await db.exec('ALTER TABLE users ADD COLUMN weekly_hour INTEGER DEFAULT 20'); } catch (e) { }
+    try { await db.exec('ALTER TABLE users ADD COLUMN weekly_minute INTEGER DEFAULT 0'); } catch (e) { }
+    try { await db.exec('ALTER TABLE users ADD COLUMN weekly_day INTEGER DEFAULT 0'); } catch (e) { }
 
     await db.exec(`
         CREATE TABLE IF NOT EXISTS user_sessions (
@@ -290,7 +302,7 @@ async function getCurrentUser(request) {
 
     const session = await db.get(
         `
-        SELECT s.id, s.user_id, s.expires_at, u.username, u.is_superuser
+        SELECT s.id, s.user_id, s.expires_at, u.username, u.is_superuser, u.whatsapp_enabled, u.whatsapp_phone, u.whatsapp_apikey
         FROM user_sessions s
         JOIN users u ON u.id = s.user_id
         WHERE s.token = ?
@@ -311,7 +323,10 @@ async function getCurrentUser(request) {
         id: session.user_id,
         username: session.username,
         token,
-        is_superuser: session.is_superuser === 1
+        is_superuser: session.is_superuser === 1,
+        whatsapp_enabled: session.whatsapp_enabled === 1,
+        whatsapp_phone: session.whatsapp_phone,
+        whatsapp_apikey: session.whatsapp_apikey
     };
 }
 
@@ -344,7 +359,7 @@ fastify.get('/api/auth/me', async (request, reply) => {
         reply.code(401);
         return { success: false, message: 'No autenticado.' };
     }
-    return { success: true, user: { id: user.id, username: user.username, is_superuser: user.is_superuser } };
+    return { success: true, user: { id: user.id, username: user.username, is_superuser: user.is_superuser, whatsapp_enabled: user.whatsapp_enabled } };
 });
 
 fastify.get('/api/admin/users', async (request, reply) => {
@@ -486,7 +501,7 @@ fastify.post('/api/auth/login', async (request, reply) => {
         return { success: false, message: error.message };
     }
 
-    const user = await db.get('SELECT id, username, password_hash, password_salt, is_superuser FROM users WHERE username = ?', [username]);
+    const user = await db.get('SELECT id, username, password_hash, password_salt, is_superuser, whatsapp_enabled FROM users WHERE username = ?', [username]);
     if (!user) {
         reply.code(401);
         return { success: false, message: 'Usuario o contrasena incorrectos.' };
@@ -510,7 +525,7 @@ fastify.post('/api/auth/login', async (request, reply) => {
     ]);
 
     reply.header('Set-Cookie', buildSessionCookie(token, expiresAt));
-    return { success: true, message: 'Login correcto.', user: { id: user.id, username: user.username, is_superuser: user.is_superuser === 1 } };
+    return { success: true, message: 'Login correcto.', user: { id: user.id, username: user.username, is_superuser: user.is_superuser === 1, whatsapp_enabled: user.whatsapp_enabled === 1 } };
 });
 
 fastify.post('/api/auth/logout', async (request, reply) => {
@@ -928,6 +943,195 @@ fastify.delete('/api/eventos/:id', async (request, reply) => {
     return { success: true, message: 'Evento eliminado' };
 });
 
+async function sendWhatsAppMessage(phone, apiKey, message) {
+    if (!phone || !apiKey || !message) return false;
+    const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(message)}&apikey=${encodeURIComponent(apiKey)}`;
+    try {
+        const response = await fetch(url);
+        if (response.ok) {
+            console.log(`WhatsApp enviado a ${phone}`);
+            return true;
+        } else {
+            console.error(`Error enviando WhatsApp: ${response.statusText}`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`Error enviando WhatsApp: ${error.message}`);
+        return false;
+    }
+}
+
+function getChileDateStr(dateObj) {
+    const d = new Date(dateObj.toLocaleString('en-US', { timeZone: 'America/Santiago' }));
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function formatDateToDDMMYYYY(dateStr) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+}
+
+async function sendDailyReport(admin, dateStr) {
+    const eventos = await db.all(
+        'SELECT title, selected_tag, description FROM calendar_events WHERE user_id = ? AND start = ?',
+        [admin.id, dateStr]
+    );
+    if (eventos.length === 0) return;
+
+    let msg = `📅 *Eventos de hoy (${formatDateToDDMMYYYY(dateStr)})*\n\n`;
+    const eventsByTitle = {};
+    eventos.forEach(e => {
+        if (!eventsByTitle[e.title]) eventsByTitle[e.title] = [];
+        eventsByTitle[e.title].push(e);
+    });
+    for (const title in eventsByTitle) {
+        msg += `📌 *${title}*\n`;
+        eventsByTitle[title].forEach(e => {
+            if (e.selected_tag || e.description) {
+                if (e.selected_tag) msg += `🔸 *${e.selected_tag}*\n`;
+                if (e.description) msg += `↳ ${e.description}\n`;
+            }
+        });
+        msg += `\n`;
+    }
+    await sendWhatsAppMessage(admin.whatsapp_phone, admin.whatsapp_apikey, msg.trim());
+}
+
+async function sendWeeklyReport(admin, now) {
+    const today = new Date(now.toLocaleString('en-US', { timeZone: 'America/Santiago' }));
+    const monday = new Date(today);
+    monday.setDate(monday.getDate() + 1);
+    const mondayStr = getChileDateStr(monday);
+    const sundayNext = new Date(monday);
+    sundayNext.setDate(sundayNext.getDate() + 6);
+    const sundayNextStr = getChileDateStr(sundayNext);
+
+    const eventos = await db.all(
+        'SELECT title, start, selected_tag, description FROM calendar_events WHERE user_id = ? AND start >= ? AND start <= ? ORDER BY start ASC',
+        [admin.id, mondayStr, sundayNextStr]
+    );
+
+    let msg = `🗓️ *Resumen de la semana (${formatDateToDDMMYYYY(mondayStr)} a ${formatDateToDDMMYYYY(sundayNextStr)})*\n\n`;
+    if (eventos.length === 0) {
+        msg += `No tienes eventos programados.`;
+    } else {
+        const days = {};
+        eventos.forEach(e => {
+            if (!days[e.start]) days[e.start] = {};
+            if (!days[e.start][e.title]) days[e.start][e.title] = [];
+            days[e.start][e.title].push(e);
+        });
+        for (const day in days) {
+            msg += `📅 *${formatDateToDDMMYYYY(day)}*:\n\n`;
+            for (const title in days[day]) {
+                msg += `📌 *${title}*\n`;
+                days[day][title].forEach(e => {
+                    if (e.selected_tag || e.description) {
+                        if (e.selected_tag) msg += `🔸 *${e.selected_tag}*\n`;
+                        if (e.description) msg += `↳ ${e.description}\n`;
+                    }
+                });
+                msg += `\n`;
+            }
+        }
+    }
+    await sendWhatsAppMessage(admin.whatsapp_phone, admin.whatsapp_apikey, msg.trim());
+}
+
+function initCronJobs() {
+    // Cron universal: se ejecuta cada minuto y compara con el horario de cada usuario
+    cron.schedule('* * * * *', async () => {
+        try {
+            const now = new Date();
+            // Hora y minuto actuales en zona horaria de Chile
+            const chileNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Santiago' }));
+            const currentHour = chileNow.getHours();
+            const currentMinute = chileNow.getMinutes();
+            const currentDayOfWeek = chileNow.getDay();
+            const dateStr = getChileDateStr(now);
+
+            const admins = await db.all(
+                'SELECT id, whatsapp_phone, whatsapp_apikey, daily_hour, daily_minute, weekly_hour, weekly_minute, weekly_day FROM users WHERE is_superuser = 1 AND whatsapp_enabled = 1'
+            );
+
+            for (const admin of admins) {
+                const dh = admin.daily_hour ?? 9;
+                const dm = admin.daily_minute ?? 0;
+                const wh = admin.weekly_hour ?? 20;
+                const wm = admin.weekly_minute ?? 0;
+                const wd = admin.weekly_day ?? 0;
+
+                // Reporte diario: si la hora/minuto coincide con el horario del usuario
+                if (currentHour === dh && currentMinute === dm) {
+                    console.log(`Enviando reporte diario a usuario ${admin.id} (${dh}:${String(dm).padStart(2, '0')} Chile)`);
+                    await sendDailyReport(admin, dateStr);
+                }
+
+                // Reporte semanal: en el día de la semana y horario elegidos por el usuario
+                if (currentDayOfWeek === wd && currentHour === wh && currentMinute === wm) {
+                    console.log(`Enviando reporte semanal a usuario ${admin.id} (Día ${wd} a las ${wh}:${String(wm).padStart(2, '0')} Chile)`);
+                    await sendWeeklyReport(admin, now);
+                }
+            }
+        } catch (error) {
+            console.error('Error en cron de notificaciones:', error);
+        }
+    }, { scheduled: true, timezone: "America/Santiago" });
+}
+
+fastify.get('/api/user/settings', async (request, reply) => {
+    const user = await requireAuth(request, reply);
+    if (!user) return;
+    if (!user.is_superuser) {
+        reply.code(403);
+        return { success: false, message: 'Solo admins.' };
+    }
+    // Leer los campos directamente desde la BD para incluir los nuevos de horario
+    const fullUser = await db.get(
+        'SELECT whatsapp_enabled, whatsapp_phone, whatsapp_apikey, daily_hour, daily_minute, weekly_hour, weekly_minute, weekly_day FROM users WHERE id = ?',
+        [user.id]
+    );
+    return {
+        success: true,
+        whatsapp_enabled: fullUser.whatsapp_enabled,
+        whatsapp_phone: fullUser.whatsapp_phone || '',
+        whatsapp_apikey: fullUser.whatsapp_apikey || '',
+        daily_hour: fullUser.daily_hour ?? 9,
+        daily_minute: fullUser.daily_minute ?? 0,
+        weekly_hour: fullUser.weekly_hour ?? 20,
+        weekly_minute: fullUser.weekly_minute ?? 0,
+        weekly_day: fullUser.weekly_day ?? 0
+    };
+});
+
+fastify.put('/api/user/settings', async (request, reply) => {
+    const user = await requireAuth(request, reply);
+    if (!user) return;
+    if (!user.is_superuser) {
+        reply.code(403);
+        return { success: false, message: 'Solo admins.' };
+    }
+    const enabled = request.body.whatsapp_enabled === true ? 1 : 0;
+    const phone = String(request.body.whatsapp_phone || '').trim();
+    const apikey = String(request.body.whatsapp_apikey || '').trim();
+
+    const dailyHour = Math.max(0, Math.min(23, parseInt(request.body.daily_hour ?? 9, 10)));
+    const dailyMinute = Math.max(0, Math.min(59, parseInt(request.body.daily_minute ?? 0, 10)));
+    const weeklyHour = Math.max(0, Math.min(23, parseInt(request.body.weekly_hour ?? 20, 10)));
+    const weeklyMinute = Math.max(0, Math.min(59, parseInt(request.body.weekly_minute ?? 0, 10)));
+    const weeklyDay = Math.max(0, Math.min(6, parseInt(request.body.weekly_day ?? 0, 10)));
+
+    await db.run(
+        'UPDATE users SET whatsapp_enabled = ?, whatsapp_phone = ?, whatsapp_apikey = ?, daily_hour = ?, daily_minute = ?, weekly_hour = ?, weekly_minute = ?, weekly_day = ? WHERE id = ?',
+        [enabled, phone, apikey, dailyHour, dailyMinute, weeklyHour, weeklyMinute, weeklyDay, user.id]
+    );
+
+    return { success: true, message: 'Configuración actualizada.' };
+});
+
 fastify.setErrorHandler((error, request, reply) => {
     const statusCode = error.statusCode || 500;
     reply.code(statusCode).send({
@@ -939,6 +1143,7 @@ fastify.setErrorHandler((error, request, reply) => {
 const start = async () => {
     try {
         await iniciarDB();
+        initCronJobs();
         // Escucha dinamicamente en el puerto que asigne EasyPanel (o 3000 por defecto)
         const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
         await fastify.listen({ port: port, host: '0.0.0.0' });

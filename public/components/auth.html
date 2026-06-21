@@ -1,0 +1,41 @@
+<section id="authSection" class="auth-shell">
+    <div id="loginView" class="auth-card">
+        <h1>Mi Calendario</h1>
+        <p>Inicia sesion para acceder a tu calendario personal.</p>
+
+        <form id="loginForm" class="auth-form" autocomplete="off">
+            <label for="loginUsername">Usuario</label>
+            <input id="loginUsername" type="text" minlength="3" maxlength="30" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+            <label for="loginPassword">Contraseña</label>
+            <input id="loginPassword" type="password" minlength="4" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+            <div class="auth-actions">
+                <button class="btn btn-primary" type="submit" style="width: 100%;">Entrar</button>
+            </div>
+        </form>
+        <p class="auth-toggle-text">
+            ¿No tienes cuenta? <button id="showRegisterBtn" class="link-btn" type="button">Registrarse</button>
+        </p>
+    </div>
+
+    <div id="registerView" class="auth-card hidden">
+        <h1>Crear cuenta</h1>
+        <p>Elige un usuario y contraseña nuevos.</p>
+
+        <form id="registerForm" class="auth-form" autocomplete="off">
+            <label for="registerUsername">Nuevo Usuario</label>
+            <input id="registerUsername" type="text" minlength="3" maxlength="30" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+            <label for="registerPassword">Nueva Contraseña</label>
+            <input id="registerPassword" type="password" minlength="4" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+            <div class="auth-actions">
+                <button class="btn btn-primary" type="submit" style="width: 100%;">Crear cuenta</button>
+            </div>
+        </form>
+        <p class="auth-toggle-text">
+            ¿Ya tienes cuenta? <button id="showLoginBtn" class="link-btn" type="button">Iniciar sesion</button>
+        </p>
+    </div>
+</section>

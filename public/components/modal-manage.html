@@ -1,0 +1,42 @@
+<div id="manageModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="manageModalTitle">
+    <div class="modal-card manage-card">
+        <div class="modal-header">
+            <h2 id="manageModalTitle">Gestionar eventos base</h2>
+            <button id="closeManageModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+        </div>
+
+        <div class="manage-layout">
+            <aside>
+                <div id="manageTemplateList" class="manage-list"></div>
+            </aside>
+
+            <section>
+                <form id="manageTemplateForm" class="modal-body" autocomplete="off">
+                    <label for="manageTemplateTitle">Titulo</label>
+                    <input id="manageTemplateTitle" type="text" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+                    <label>Color del evento</label>
+                    <div id="manageColorOptions" class="color-grid" aria-label="Seleccion de color"></div>
+
+                    <label for="manageTagInput">Etiquetas opcionales (maximo 10)</label>
+                    <div class="inline-field">
+                        <input id="manageTagInput" type="text" maxlength="40" placeholder="Nueva etiqueta" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                        <button id="addManageTagBtn" class="btn" type="button">Agregar</button>
+                    </div>
+                    <div id="manageTagList" class="tag-list"></div>
+
+                    <div class="modal-footer between">
+                        <div class="left-actions" style="display: flex; gap: 8px;">
+                            <button id="deleteTemplateBtn" class="btn btn-danger" type="button">Eliminar</button>
+                            <button id="duplicateTemplateBtn" class="btn" type="button">Duplicar</button>
+                        </div>
+                        <div class="right-actions">
+                            <button class="btn" type="button" id="cancelManage">Cerrar</button>
+                            <button class="btn btn-primary" type="submit">Guardar cambios</button>
+                        </div>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </div>
+</div>

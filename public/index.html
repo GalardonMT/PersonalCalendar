@@ -1,74 +1,52 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Calendario personal para gestionar eventos, plantillas y etiquetas con una interfaz moderna y eficiente.">
+    <meta name="description"
+        content="Calendario personal para gestionar eventos, plantillas y etiquetas con una interfaz moderna y eficiente.">
     <title>Calendario personal</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="icon" type="image/png" href="logocalendar.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap">
+    <link rel="preload" as="style"
+        href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap">
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales-all.global.min.js'></script>
-    
+
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-    <section id="authSection" class="auth-shell">
-        <div id="loginView" class="auth-card">
-            <h1>Mi Calendario</h1>
-            <p>Inicia sesion para acceder a tu calendario personal.</p>
 
-            <form id="loginForm" class="auth-form" autocomplete="off">
-                <label for="loginUsername">Usuario</label>
-                <input id="loginUsername" type="text" minlength="3" maxlength="30" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+    <!-- ── Contenedor donde se inyectan los componentes dinámicamente ── -->
+    <div id="app-components"></div>
 
-                <label for="loginPassword">Contraseña</label>
-                <input id="loginPassword" type="password" minlength="4" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-
-                <div class="auth-actions">
-                    <button class="btn btn-primary" type="submit" style="width: 100%;">Entrar</button>
-                </div>
-            </form>
-            <p class="auth-toggle-text">
-                ¿No tienes cuenta? <button id="showRegisterBtn" class="link-btn" type="button">Registrarse</button>
-            </p>
-        </div>
-
-        <div id="registerView" class="auth-card hidden">
-            <h1>Crear cuenta</h1>
-            <p>Elige un usuario y contraseña nuevos.</p>
-
-            <form id="registerForm" class="auth-form" autocomplete="off">
-                <label for="registerUsername">Nuevo Usuario</label>
-                <input id="registerUsername" type="text" minlength="3" maxlength="30" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-
-                <label for="registerPassword">Nueva Contraseña</label>
-                <input id="registerPassword" type="password" minlength="4" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-
-                <div class="auth-actions">
-                    <button class="btn btn-primary" type="submit" style="width: 100%;">Crear cuenta</button>
-                </div>
-            </form>
-            <p class="auth-toggle-text">
-                ¿Ya tienes cuenta? <button id="showLoginBtn" class="link-btn" type="button">Iniciar sesion</button>
-            </p>
-        </div>
-    </section>
-
+    <!-- ── Shell principal de la aplicación (siempre visible en DOM) ── -->
     <div id="appSection" class="page-shell hidden">
         <header class="topbar">
             <h1>Mi Calendario</h1>
             <div class="topbar-actions">
                 <span id="currentUserLabel" class="current-user"></span>
-                <button id="openAdminModal" class="btn hidden" type="button">Admin</button>
-                <button id="openManageModal" class="btn" type="button">Gestionar eventos</button>
-                <button id="openTemplateModal" class="btn btn-primary" type="button">+ Nuevo evento</button>
-                <button id="logoutBtn" class="btn" type="button">Salir</button>
+                <button id="openAdminModal" class="btn hidden" type="button">
+                    <img src="/icons/admin.png" class="btn-icon" alt="">Admin
+                </button>
+                <button id="openWhatsappModal" class="btn hidden" type="button">
+                    <img id="whatsappIcon" src="/icons/notificacion.png" class="btn-icon" alt="">Notificaciones
+                </button>
+                <button id="openTemplateModal" class="btn btn-primary" type="button">
+                    <img src="/icons/boton-agregar.png" class="btn-icon" alt="">Nuevo evento
+                </button>
+                <button id="openManageModal" class="btn" type="button">
+                    <img src="/icons/config.png" class="btn-icon" alt="">Gestionar eventos
+                </button>
+                <button id="logoutBtn" class="btn" type="button">
+                    <img src="/icons/salida-de-emergencia.png" class="btn-icon" alt="">Salir
+                </button>
             </div>
         </header>
 
@@ -90,187 +68,16 @@
         </div>
     </div>
 
-    <div id="templateModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h2 id="templateModalTitle">Crear evento base</h2>
-                <button id="closeTemplateModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
-            </div>
-
-            <form id="templateForm" class="modal-body" autocomplete="off">
-                <label for="templateTitle">Titulo</label>
-                <input id="templateTitle" type="text" maxlength="120" required placeholder="Ej. Reunión semanal" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-
-                <label>Color del evento</label>
-                <div id="templateColorOptions" class="color-grid" aria-label="Seleccion de color"></div>
-
-                <label for="tagInput">Etiquetas opcionales (maximo 10)</label>
-                <div class="inline-field">
-                    <input id="tagInput" type="text" maxlength="40" placeholder="Ej. Trabajo" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-                    <button id="addTagBtn" class="btn" type="button">Agregar</button>
-                </div>
-                <div id="tagList" class="tag-list"></div>
-
-                <div class="modal-footer">
-                    <button class="btn" type="button" id="cancelTemplate">Cancelar</button>
-                    <button class="btn btn-primary" type="submit">Guardar evento base</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="dayEventModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dayEventTitle">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h2 id="dayEventTitle">Agregar evento al dia</h2>
-                <button id="closeDayModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
-            </div>
-
-            <form id="dayEventForm" class="modal-body" autocomplete="off">
-                <label for="eventDate">Fecha</label>
-                <input id="eventDate" type="date" required readonly autocomplete="off" />
-
-                <label>Evento base a asignar</label>
-                <div id="templateVisualSelect" class="visual-select-list"></div>
-                <input type="hidden" id="templateSelect" required>
-
-                <label for="tagSelect">Etiqueta (opcional)</label>
-                <select id="tagSelect"></select>
-
-                <label for="eventDescription">Descripcion del evento (opcional)</label>
-                <textarea id="eventDescription" maxlength="1000" placeholder="Descripcion para este evento" rows="3"></textarea>
-
-                <div class="modal-footer">
-                    <button class="btn" type="button" id="cancelDayEvent">Cancelar</button>
-                    <button class="btn btn-primary" type="submit" id="saveDayEventBtn">Guardar en calendario</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="viewEventsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="viewEventsTitle">
-        <div class="modal-card view-events-card">
-            <div class="modal-header">
-                <h2 id="viewEventsTitle">Ver Eventos</h2>
-                <button id="closeViewEventsModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
-            </div>
-            <div class="modal-body">
-                <label for="eventsFilterSelect">Filtrar por evento base</label>
-                <select id="eventsFilterSelect">
-                    <option value="">Todos los eventos</option>
-                </select>
-                <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-                    <button id="filterUpcomingBtn" class="btn btn-primary" type="button" style="flex: 1;">De hoy en adelante</button>
-                    <button id="filterAllBtn" class="btn" type="button" style="flex: 1;">Todos los eventos</button>
-                </div>
-                
-                <div id="eventsPreviewList" class="events-preview-list">
-                    <p class="empty-message">No hay eventos para mostrar.</p>
-                </div>
-
-                <div class="modal-footer">
-                    <button id="closeViewEventsFooter" class="btn" type="button">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="dialogModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
-        <div class="modal-card dialog-card">
-            <div class="modal-header">
-                <h2 id="dialogTitle">Confirmacion</h2>
-                <button id="dialogCloseBtn" class="icon-btn" type="button" aria-label="Cerrar">x</button>
-            </div>
-            <div class="modal-body">
-                <p id="dialogMessage" class="dialog-message"></p>
-                <div class="modal-footer">
-                    <button id="dialogCancelBtn" class="btn" type="button">Cancelar</button>
-                    <button id="dialogConfirmBtn" class="btn btn-primary" type="button">Aceptar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <!-- ── Toast de notificaciones ── -->
     <div id="toast" class="toast hidden" aria-live="polite"></div>
 
-    <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
-        <div class="modal-card admin-modal-card">
-            <div class="modal-header">
-                <h2 id="adminModalTitle">Panel de Administrador</h2>
-                <button id="closeAdminModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
-            </div>
-            <div class="modal-body admin-users-section">
-                <h3>Usuarios Registrados</h3>
-                <ul id="adminUserList" class="admin-user-list"></ul>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal separado para editar usuario: se abre solo al hacer click en Editar -->
-    <div id="adminEditModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminEditModalTitle">
-        <div class="modal-card admin-modal-card">
-            <div class="modal-header">
-                <h2 id="adminEditModalTitle">Editar Usuario</h2>
-                <button id="adminEditModalCloseBtn" class="icon-btn" type="button" aria-label="Cerrar">x</button>
-            </div>
-            <form id="adminEditUserForm" class="modal-body admin-edit-form">
-                <h3>Editar Usuario</h3>
-                <input type="hidden" id="adminEditUserId">
-                <label for="adminEditUsername">Nombre de usuario</label>
-                <input id="adminEditUsername" type="text" required>
-                <label for="adminEditPassword">Nueva contraseña (dejar vacio para no cambiar)</label>
-                <input id="adminEditPassword" type="password">
-                <div class="modal-footer between">
-                    <button type="button" class="btn" id="adminCancelEditBtn">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Guardar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="manageModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="manageModalTitle">
-        <div class="modal-card manage-card">
-            <div class="modal-header">
-                <h2 id="manageModalTitle">Gestionar eventos base</h2>
-                <button id="closeManageModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
-            </div>
-
-            <div class="manage-layout">
-                <aside>
-                    <div id="manageTemplateList" class="manage-list"></div>
-                </aside>
-
-                <section>
-                    <form id="manageTemplateForm" class="modal-body" autocomplete="off">
-                        <label for="manageTemplateTitle">Titulo</label>
-                        <input id="manageTemplateTitle" type="text" maxlength="120" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-
-                        <label>Color del evento</label>
-                        <div id="manageColorOptions" class="color-grid" aria-label="Seleccion de color"></div>
-
-                        <label for="manageTagInput">Etiquetas opcionales (maximo 10)</label>
-                        <div class="inline-field">
-                            <input id="manageTagInput" type="text" maxlength="40" placeholder="Nueva etiqueta" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-                            <button id="addManageTagBtn" class="btn" type="button">Agregar</button>
-                        </div>
-                        <div id="manageTagList" class="tag-list"></div>
-
-                        <div class="modal-footer between">
-                            <div class="left-actions" style="display: flex; gap: 8px;">
-                                <button id="deleteTemplateBtn" class="btn btn-danger" type="button">Eliminar</button>
-                                <button id="duplicateTemplateBtn" class="btn" type="button">Duplicar</button>
-                            </div>
-                            <div class="right-actions">
-                                <button class="btn" type="button" id="cancelManage">Cerrar</button>
-                                <button class="btn btn-primary" type="submit">Guardar cambios</button>
-                            </div>
-                        </div>
-                    </form>
-                </section>
-            </div>
-        </div>
-    </div>
-
+    <!--
+        Orden de carga:
+        1. components.js  → carga e inyecta los HTML de cada componente en #app-components
+        2. app.js         → escucha 'components:ready' para inicializar la lógica
+    -->
+    <script src="components.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>

@@ -8,6 +8,20 @@ Permite:
 - Agregar eventos al calendario por fecha usando esas plantillas
 - Editar y eliminar eventos
 - Administrar usuarios (rol superusuario)
+- Configurar notificaciones automáticas vía WhatsApp (reportes diarios de eventos y resúmenes semanales configurables)
+
+## Notificaciones automáticas (WhatsApp)
+
+La aplicación soporta el envío de recordatorios automáticos de tus eventos a tu cuenta de WhatsApp utilizando **CallMeBot**.
+
+### Configuración:
+1. Haz clic en el botón **Notificaciones** en la barra superior.
+2. Sigue los 4 sencillos pasos indicados en la interfaz para añadir el bot de CallMeBot y obtener tu API Key gratuita.
+3. Registra tu número de teléfono (ej: `+56912345678`) y la API Key recibida en los campos correspondientes.
+4. Configura tus preferencias de envío:
+   - **Reporte diario:** Hora y minuto para recibir los eventos agendados del día actual.
+   - **Reporte semanal:** Día de la semana (lunes, domingo, etc.) y horario preferido para recibir la agenda resumida de la semana entrante.
+5. Guarda la configuración. El servidor procesará dinámicamente tu horario y enviará los reportes de manera automática.
 
 ## Tecnologias utilizadas
 

@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('components:ready', function() {
     const DEFAULT_COLOR = '#3b82f6';
     const PRESET_COLORS = [
         '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
@@ -38,6 +38,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const adminCancelEditBtn = document.getElementById('adminCancelEditBtn');
     const adminEditModalCloseBtn = document.getElementById('adminEditModalCloseBtn');
     const showLoginBtn = document.getElementById('showLoginBtn');
+    
+    const openWhatsappModalBtn = document.getElementById('openWhatsappModal');
+    const whatsappModal = document.getElementById('whatsappModal');
+    const closeWhatsappModal = document.getElementById('closeWhatsappModal');
+    const cancelWhatsappBtn = document.getElementById('cancelWhatsappBtn');
+    const whatsappForm = document.getElementById('whatsappForm');
+    const whatsappEnabled = document.getElementById('whatsappEnabled');
+    const whatsappPhone = document.getElementById('whatsappPhone');
+    const whatsappApikey = document.getElementById('whatsappApikey');
+    const toggleApiInstructions = document.getElementById('toggleApiInstructions');
+    const apiKeyInstructions = document.getElementById('apiKeyInstructions');
+    const toggleSchedulePanel = document.getElementById('toggleSchedulePanel');
+    const schedulePanel = document.getElementById('schedulePanel');
+    const dailyHourSel = document.getElementById('dailyHour');
+    const dailyMinuteSel = document.getElementById('dailyMinute');
+    const weeklyHourSel = document.getElementById('weeklyHour');
+    const weeklyMinuteSel = document.getElementById('weeklyMinute');
+    const weeklyDaySel = document.getElementById('weeklyDay');
 
     const loginForm = document.getElementById('loginForm');
     const loginUsernameInput = document.getElementById('loginUsername');
@@ -226,6 +244,16 @@ document.addEventListener('DOMContentLoaded', function() {
         appSection.classList.add('hidden');
     }
 
+    function updateWhatsappIcon() {
+        const iconEl = document.getElementById('whatsappIcon');
+        if (!iconEl) return;
+        if (currentUser && currentUser.whatsapp_enabled) {
+            iconEl.src = '/icons/notificacion encendida.png';
+        } else {
+            iconEl.src = '/icons/notificacion.png';
+        }
+    }
+
     function showAppView() {
         authSection.classList.add('hidden');
         appSection.classList.remove('hidden');
@@ -234,9 +262,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (currentUser?.is_superuser) {
             openAdminModalBtn.classList.remove('hidden');
+            if (openWhatsappModalBtn) openWhatsappModalBtn.classList.remove('hidden');
         } else {
             openAdminModalBtn.classList.add('hidden');
+            if (openWhatsappModalBtn) openWhatsappModalBtn.classList.add('hidden');
         }
+        updateWhatsappIcon();
         if (calendar) {
             window.setTimeout(() => calendar.updateSize(), 0);
         }
@@ -1990,6 +2021,150 @@ document.addEventListener('DOMContentLoaded', function() {
         renderDayPanelView();
         showAuthView();
     });
+
+    // Rellena los <select> de hora y minuto para los horarios de WhatsApp
+    function populateTimeSelects() {
+        if (!dailyHourSel || !dailyMinuteSel || !weeklyHourSel || !weeklyMinuteSel) return;
+        [dailyHourSel, weeklyHourSel].forEach(sel => {
+            if (sel.options.length > 0) return; // Ya poblado
+            for (let h = 0; h < 24; h++) {
+                const opt = document.createElement('option');
+                opt.value = h;
+                opt.textContent = String(h).padStart(2, '0');
+                sel.appendChild(opt);
+            }
+        });
+        [dailyMinuteSel, weeklyMinuteSel].forEach(sel => {
+            if (sel.options.length > 0) return;
+            [0, 15, 30, 45].forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = String(m).padStart(2, '0');
+                sel.appendChild(opt);
+            });
+        });
+    }
+
+    if (openWhatsappModalBtn && whatsappModal) {
+        // Toggle instrucciones API Key
+        if (toggleApiInstructions && apiKeyInstructions) {
+            toggleApiInstructions.addEventListener('click', () => {
+                apiKeyInstructions.classList.toggle('hidden');
+            });
+        }
+
+
+
+        // Helper to copy text to clipboard with fallback for non-secure contexts (HTTP over local network)
+        async function copyToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                return navigator.clipboard.writeText(text);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.top = "0";
+                textArea.style.left = "0";
+                textArea.style.opacity = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    if (!successful) throw new Error("Copy command failed");
+                } catch (err) {
+                    document.body.removeChild(textArea);
+                    throw err;
+                }
+            }
+        }
+
+        // Botones de copiar al portapapeles (número y mensaje de CallMeBot)
+        document.querySelectorAll('.wa-copy-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const text = this.dataset.copy;
+                if (!text) return;
+                try {
+                    await copyToClipboard(text);
+                    const original = this.innerHTML;
+                    this.innerHTML = '✓ Copiado';
+                    this.classList.add('copied');
+                    setTimeout(() => {
+                        this.innerHTML = original;
+                        this.classList.remove('copied');
+                    }, 2000);
+                } catch (err) {
+                    console.error('Error copying text: ', err);
+                    showToast('No se pudo copiar al portapapeles.', true);
+                }
+            });
+        });
+
+
+        openWhatsappModalBtn.addEventListener('click', async function() {
+            try {
+                populateTimeSelects();
+                const data = await apiRequest('/api/user/settings');
+                whatsappEnabled.checked = !!data.whatsapp_enabled;
+                whatsappPhone.value = data.whatsapp_phone || '';
+                whatsappApikey.value = data.whatsapp_apikey || '';
+                // Cerrar paneles al abrir el modal
+                if (apiKeyInstructions) apiKeyInstructions.classList.add('hidden');
+                // Cargar horarios
+                if (dailyHourSel) dailyHourSel.value = data.daily_hour ?? 9;
+                if (dailyMinuteSel) dailyMinuteSel.value = data.daily_minute ?? 0;
+                if (weeklyHourSel) weeklyHourSel.value = data.weekly_hour ?? 20;
+                if (weeklyMinuteSel) weeklyMinuteSel.value = data.weekly_minute ?? 0;
+                if (weeklyDaySel) weeklyDaySel.value = data.weekly_day ?? 0;
+                openModal(whatsappModal);
+            } catch (error) {
+                showToast(error.message, true);
+            }
+        });
+
+        if (closeWhatsappModal) closeWhatsappModal.addEventListener('click', () => closeModal(whatsappModal));
+        if (cancelWhatsappBtn) cancelWhatsappBtn.addEventListener('click', () => closeModal(whatsappModal));
+
+        if (whatsappForm) {
+            whatsappForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const enabled = whatsappEnabled.checked;
+                const phone = whatsappPhone.value.trim();
+                const apikey = whatsappApikey.value.trim();
+                const daily_hour = parseInt(dailyHourSel?.value ?? 9, 10);
+                const daily_minute = parseInt(dailyMinuteSel?.value ?? 0, 10);
+                const weekly_hour = parseInt(weeklyHourSel?.value ?? 20, 10);
+                const weekly_minute = parseInt(weeklyMinuteSel?.value ?? 0, 10);
+                const weekly_day = parseInt(weeklyDaySel?.value ?? 0, 10);
+
+                try {
+                    await apiRequest('/api/user/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            whatsapp_enabled: enabled,
+                            whatsapp_phone: phone,
+                            whatsapp_apikey: apikey,
+                            daily_hour,
+                            daily_minute,
+                            weekly_hour,
+                            weekly_minute,
+                            weekly_day
+                        })
+                    });
+                    if (currentUser) {
+                        currentUser.whatsapp_enabled = enabled;
+                    }
+                    updateWhatsappIcon();
+                    showToast('Configuración de notificaciones guardada.');
+                    closeModal(whatsappModal);
+                } catch (error) {
+                    showToast(error.message, true);
+                }
+            });
+        }
+    }
 
     renderColorOptions(templateColorOptions, selectedTemplateColor, onTemplateColorSelect);
     renderColorOptions(manageColorOptions, selectedManageColor, onManageColorSelect);

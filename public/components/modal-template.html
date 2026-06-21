@@ -1,0 +1,28 @@
+<div id="templateModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h2 id="templateModalTitle">Crear evento base</h2>
+            <button id="closeTemplateModal" class="icon-btn" type="button" aria-label="Cerrar">x</button>
+        </div>
+
+        <form id="templateForm" class="modal-body" autocomplete="off">
+            <label for="templateTitle">Titulo</label>
+            <input id="templateTitle" type="text" maxlength="120" required placeholder="Ej. Reunión semanal" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+            <label>Color del evento</label>
+            <div id="templateColorOptions" class="color-grid" aria-label="Seleccion de color"></div>
+
+            <label for="tagInput">Etiquetas opcionales (maximo 10)</label>
+            <div class="inline-field">
+                <input id="tagInput" type="text" maxlength="40" placeholder="Ej. Trabajo" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                <button id="addTagBtn" class="btn" type="button">Agregar</button>
+            </div>
+            <div id="tagList" class="tag-list"></div>
+
+            <div class="modal-footer">
+                <button class="btn" type="button" id="cancelTemplate">Cancelar</button>
+                <button class="btn btn-primary" type="submit">Guardar evento base</button>
+            </div>
+        </form>
+    </div>
+</div>
