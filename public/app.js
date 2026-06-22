@@ -265,11 +265,10 @@ document.addEventListener('components:ready', function() {
         }
         if (currentUser?.is_superuser) {
             openAdminModalBtn.classList.remove('hidden');
-            if (openWhatsappModalBtn) openWhatsappModalBtn.classList.remove('hidden');
         } else {
             openAdminModalBtn.classList.add('hidden');
-            if (openWhatsappModalBtn) openWhatsappModalBtn.classList.add('hidden');
         }
+        if (openWhatsappModalBtn) openWhatsappModalBtn.classList.remove('hidden');
         updateWhatsappIcon();
         if (calendar) {
             window.setTimeout(() => calendar.updateSize(), 0);

@@ -969,7 +969,10 @@ function getChileDateStr(dateObj) {
 function formatDateToDDMMYYYY(dateStr) {
     const parts = dateStr.split('-');
     if (parts.length === 3) {
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const dayName = days[d.getDay()];
+        return `${dayName} ${parts[2]}/${parts[1]}/${parts[0]}`;
     }
     return dateStr;
 }
@@ -1054,7 +1057,7 @@ function initCronJobs() {
             const dateStr = getChileDateStr(now);
 
             const admins = await db.all(
-                'SELECT id, whatsapp_phone, whatsapp_apikey, daily_hour, daily_minute, weekly_hour, weekly_minute, weekly_day FROM users WHERE is_superuser = 1 AND whatsapp_enabled = 1'
+                'SELECT id, whatsapp_phone, whatsapp_apikey, daily_hour, daily_minute, weekly_hour, weekly_minute, weekly_day FROM users WHERE whatsapp_enabled = 1'
             );
 
             for (const admin of admins) {
@@ -1085,10 +1088,7 @@ function initCronJobs() {
 fastify.get('/api/user/settings', async (request, reply) => {
     const user = await requireAuth(request, reply);
     if (!user) return;
-    if (!user.is_superuser) {
-        reply.code(403);
-        return { success: false, message: 'Solo admins.' };
-    }
+
     // Leer los campos directamente desde la BD para incluir los nuevos de horario
     const fullUser = await db.get(
         'SELECT whatsapp_enabled, whatsapp_phone, whatsapp_apikey, daily_hour, daily_minute, weekly_hour, weekly_minute, weekly_day FROM users WHERE id = ?',
@@ -1110,10 +1110,7 @@ fastify.get('/api/user/settings', async (request, reply) => {
 fastify.put('/api/user/settings', async (request, reply) => {
     const user = await requireAuth(request, reply);
     if (!user) return;
-    if (!user.is_superuser) {
-        reply.code(403);
-        return { success: false, message: 'Solo admins.' };
-    }
+
     const enabled = request.body.whatsapp_enabled === true ? 1 : 0;
     const phone = String(request.body.whatsapp_phone || '').trim();
     const apikey = String(request.body.whatsapp_apikey || '').trim();
